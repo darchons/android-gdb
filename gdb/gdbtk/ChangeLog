@@ -1,3 +1,7 @@
+2002-12-06  Andrew Cagney  <ac131313@redhat.com>
+
+	* generic/gdbtk-cmds.c (gdb_update_mem): Don't add a 0x prefix.
+
 2002-09-26  Andrew Cagney  <ac131313@redhat.com>
 
 	Import from mainline:
