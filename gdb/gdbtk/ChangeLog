@@ -1,3 +1,7 @@
+2001-10-20  Andrew Cagney  <ac131313@redhat.com>
+
+	* generic/gdbtk-register.c: Include "regcache.h".
+
 2001-08-02  Keith Seitz  <keiths@redhat.com>
 
         * generic/gdbtk-bp.c (gdb_get_breakpoint_info): Update

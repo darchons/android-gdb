@@ -21,6 +21,7 @@
 #include "defs.h"
 #include "frame.h"
 #include "value.h"
+#include "regcache.h"
 
 #include <tcl.h>
 #include "gdbtk.h"
