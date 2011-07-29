@@ -27,6 +27,11 @@ extern int debug_threads;
 
 static int thread_db_use_events;
 
+/* Android doesn't have libthread_db.so.1, just libthread_db.so.  */
+#ifdef __ANDROID__
+#define LIBTHREAD_DB_SO "libthread_db.so"
+#endif
+
 #include "gdb_proc_service.h"
 #include "../gdb_thread_db.h"
 
