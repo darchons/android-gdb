@@ -96,6 +96,7 @@ static const char arm_linux_thumb2_le_breakpoint[] = { 0xf0, 0xf7, 0x00, 0xa0 };
 #define ARM_LINUX_JB_ELEMENT_SIZE	INT_REGISTER_SIZE
 #define ARM_LINUX_JB_PC_FPA		21
 #define ARM_LINUX_JB_PC_EABI		9
+#define ARM_LINUX_JB_PC_ANDROID		29
 
 /*
    Dynamic Linking on ARM GNU/Linux
@@ -995,6 +996,12 @@ arm_linux_init_abi (struct gdbarch_info info,
   if (tdep->fp_model == ARM_FLOAT_AUTO)
     tdep->fp_model = ARM_FLOAT_FPA;
 
+#ifdef __ANDROID__
+  /* FIXME: HACK.  We need some runtime test for whether we're running an
+     android program.  Having an android indicator in .note.ABI-tag is
+     one possible way.  */
+  tdep->jb_pc = ARM_LINUX_JB_PC_ANDROID;
+#else
   switch (tdep->fp_model)
     {
     case ARM_FLOAT_FPA:
@@ -1011,6 +1018,7 @@ arm_linux_init_abi (struct gdbarch_info info,
          _("arm_linux_init_abi: Floating point model not supported"));
       break;
     }
+#endif
   tdep->jb_elt_size = ARM_LINUX_JB_ELEMENT_SIZE;
 
   set_solib_svr4_fetch_link_map_offsets
