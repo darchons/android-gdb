@@ -4184,6 +4184,15 @@ linux_test_for_tracefork (void)
 
   linux_supports_tracefork_flag = 0;
 
+#ifdef __ANDROID__
+  /* Just punt for now.
+     Setting linux_supports_tracefork_flag = 0 means we use thread events.
+     All the necessary thread event support doesn't currently exist on android,
+     and android can trace forks anyway.  */
+  linux_supports_tracefork_flag = 1;
+  return;
+#endif
+
 #if !(defined(__UCLIBC__) && defined(HAS_NOMMU))
 
   child_pid = fork ();
