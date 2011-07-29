@@ -12956,7 +12956,11 @@ hardware.)"),
 			    show_can_use_hw_watchpoints,
 			    &setlist, &showlist);
 
+#ifdef __ANDROID__
+  can_use_hw_watchpoints = 0;
+#else
   can_use_hw_watchpoints = 1;
+#endif
 
   /* Tracepoint manipulation commands.  */
 
