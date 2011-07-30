@@ -3815,10 +3815,12 @@ regsets_fetch_inferior_registers (struct regcache *regcache)
       else
 	data = buf;
 
-#ifndef __sparc__
-      res = ptrace (regset->get_request, pid, nt_type, data);
-#else
+#if defined(__ANDROID__)
+      res = ptrace (regset->get_request, pid, (void*)nt_type, data);
+#elif defined(__sparc__)
       res = ptrace (regset->get_request, pid, data, nt_type);
+#else
+      res = ptrace (regset->get_request, pid, nt_type, data);
 #endif
       if (res < 0)
 	{
@@ -3888,10 +3890,12 @@ regsets_store_inferior_registers (struct regcache *regcache)
       else
 	data = buf;
 
-#ifndef __sparc__
-      res = ptrace (regset->get_request, pid, nt_type, data);
+#if defined(__ANDROID__)
+      res = ptrace (regset->get_request, pid, (void*)nt_type, data);
+#elif defined(__sparc__)
+      res = ptrace (regset->get_request, pid, data, nt_type);
 #else
-      res = ptrace (regset->get_request, pid, &iov, data);
+      res = ptrace (regset->get_request, pid, nt_type, data);
 #endif
 
       if (res == 0)
@@ -3900,10 +3904,12 @@ regsets_store_inferior_registers (struct regcache *regcache)
 	  regset->fill_function (regcache, buf);
 
 	  /* Only now do we write the register set.  */
-#ifndef __sparc__
-	  res = ptrace (regset->set_request, pid, nt_type, data);
-#else
+#if defined(__ANDROID__)
+	  res = ptrace (regset->set_request, pid, (void*)nt_type, data);
+#elif defined(__sparc__)
 	  res = ptrace (regset->set_request, pid, data, nt_type);
+#else
+	  res = ptrace (regset->set_request, pid, nt_type, data);
 #endif
 	}
 
