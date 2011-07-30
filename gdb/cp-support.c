@@ -160,6 +160,9 @@ mangled_name_to_comp (const char *mangled_name, int options,
   struct demangle_component *ret;
   char *demangled_name;
 
+  if (!mangled_name)
+    return NULL;
+
   /* If it looks like a v3 mangled name, then try to go directly
      to trees.  */
   if (mangled_name[0] == '_' && mangled_name[1] == 'Z')
