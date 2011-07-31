@@ -604,6 +604,7 @@ REPORT_BUGS_TO
 PKGVERSION
 WERROR_CFLAGS
 WARN_CFLAGS
+SYSROOT_CFLAGS_FOR_TARGET
 ustinc
 ustlibs
 LIBOBJS
@@ -677,6 +678,7 @@ enable_option_checking
 with_ust
 with_ust_include
 with_ust_lib
+with_build_sysroot
 enable_werror
 with_pkgversion
 with_bugurl
@@ -1322,6 +1324,8 @@ Optional Packages:
                           plus --with-ust-lib=PATH/lib
   --with-ust-include=PATH Specify directory for installed UST include files
   --with-ust-lib=PATH   Specify the directory for the installed UST library
+  --with-build-sysroot=SYSROOT
+                          use sysroot as the system root during the build
   --with-pkgversion=PKG   Use PKG in the version string in place of "GDB"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-libthread-db=PATH
@@ -4117,6 +4121,18 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 
 # Flags needed for UST
+
+
+
+
+# Check whether --with-build-sysroot was given.
+if test "${with_build_sysroot+set}" = set; then :
+  withval=$with_build_sysroot; if test x"$withval" != x ; then
+     SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
+   fi
+else
+  SYSROOT_CFLAGS_FOR_TARGET=
+fi
 
 
 
