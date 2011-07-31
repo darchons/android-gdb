@@ -94,6 +94,15 @@ fi
 AC_SUBST(ustlibs)
 AC_SUBST(ustinc)
 
+AC_ARG_WITH([build-sysroot],
+  [AS_HELP_STRING([--with-build-sysroot=SYSROOT],
+                  [use sysroot as the system root during the build])],
+  [if test x"$withval" != x ; then
+     SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
+   fi],
+  [SYSROOT_CFLAGS_FOR_TARGET=])
+AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
+
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [treat compile warnings as errors]),
   [case "${enableval}" in
