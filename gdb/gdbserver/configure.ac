@@ -94,8 +94,8 @@ fi
 AC_SUBST(ustlibs)
 AC_SUBST(ustinc)
 
-AC_ARG_WITH([build-sysroot],
-  [AS_HELP_STRING([--with-build-sysroot=SYSROOT],
+AC_ARG_WITH([sysroot],
+  [AS_HELP_STRING([--with-sysroot=SYSROOT],
                   [use sysroot as the system root during the build])],
   [if test x"$withval" != x ; then
      SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
