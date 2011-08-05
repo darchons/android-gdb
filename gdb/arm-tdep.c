@@ -2178,12 +2178,14 @@ arm_scan_prologue (struct frame_info *this_frame,
 	 The value stored there should be the address of the stmfd + 8.  */
       CORE_ADDR frame_loc;
       LONGEST return_value;
+      gdb_byte return_buf[sizeof (LONGEST)];
 
       frame_loc = get_frame_register_unsigned (this_frame, ARM_FP_REGNUM);
-      if (!safe_read_memory_integer (frame_loc, 4, byte_order, &return_value))
+      if (target_read_memory (frame_loc, return_buf, 4))
         return;
       else
         {
+          return_value = extract_signed_integer (return_buf, 4, byte_order);
           prologue_start = gdbarch_addr_bits_remove
 			     (gdbarch, return_value) - 8;
           prologue_end = prologue_start + 64;	/* See above.  */
