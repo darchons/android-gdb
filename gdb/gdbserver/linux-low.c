@@ -535,6 +535,8 @@ get_stop_pc (struct lwp_info *lwp)
   if (WSTOPSIG (lwp->last_status) == SIGILL)
     {
       unsigned short inst[2];
+      // don't use freeze. we don't get another change to unfreeze
+      (*the_target->pause_all) (0);
       if (!(*the_target->read_memory) (stop_pc - sizeof(inst[0]),
                                        (unsigned char *) inst,
                                        sizeof(inst)) &&
