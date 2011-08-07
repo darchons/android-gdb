@@ -25,6 +25,14 @@ AC_INIT(server.c)
 AC_CONFIG_HEADER(config.h:config.in)
 AC_CONFIG_LIBOBJ_DIR(../gnulib)
 
+AC_ARG_WITH([sysroot],
+  [AS_HELP_STRING([--with-sysroot=SYSROOT],
+                  [use sysroot as the system root during the build])],
+  [if test x"$withval" != x ; then
+     CFLAGS="$CFLAGS --sysroot=$withval"
+   fi],
+  [])
+
 AC_PROG_CC
 AC_GNU_SOURCE
 
@@ -93,15 +101,6 @@ fi
 # Flags needed for UST
 AC_SUBST(ustlibs)
 AC_SUBST(ustinc)
-
-AC_ARG_WITH([sysroot],
-  [AS_HELP_STRING([--with-sysroot=SYSROOT],
-                  [use sysroot as the system root during the build])],
-  [if test x"$withval" != x ; then
-     SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
-   fi],
-  [SYSROOT_CFLAGS_FOR_TARGET=])
-AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
 
 AC_ARG_ENABLE(werror,
   AS_HELP_STRING([--enable-werror], [treat compile warnings as errors]),
