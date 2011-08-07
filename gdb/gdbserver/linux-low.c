@@ -535,8 +535,8 @@ get_stop_pc (struct lwp_info *lwp)
   if (WSTOPSIG (lwp->last_status) == SIGILL)
     {
       unsigned short inst[2];
-      // don't use freeze. we don't get another change to unfreeze
-      (*the_target->pause_all) (0);
+      // don't use suspend. we don't get another chance to unsuspend
+      stop_all_lwps(0, lwp);
       if (!(*the_target->read_memory) (stop_pc - sizeof(inst[0]),
                                        (unsigned char *) inst,
                                        sizeof(inst)) &&
@@ -548,6 +548,9 @@ get_stop_pc (struct lwp_info *lwp)
           if (debug_threads)
             fprintf (stderr, "corrected thumb-2 breakpoint pc\n");
         }
+      if (non_stop)
+        // continue other threads in non-stop mode
+        unstop_all_lwps(0, lwp);
     }
 #endif
 
