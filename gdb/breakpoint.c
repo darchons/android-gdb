@@ -5390,7 +5390,8 @@ breakpoint_has_pc (struct breakpoint *b,
   for (; bl; bl = bl->next)
     {
       if (bl->pspace == pspace
-	  && bl->address == pc
+	  && gdbarch_addr_bits_remove(target_gdbarch, bl->address) ==
+		  gdbarch_addr_bits_remove(target_gdbarch, pc)
 	  && (!overlay_debugging || bl->section == section))
 	return 1;	  
     }
@@ -5533,7 +5534,8 @@ breakpoint_address_match (struct address_space *aspace1, CORE_ADDR addr1,
 {
   return ((gdbarch_has_global_breakpoints (target_gdbarch)
 	   || aspace1 == aspace2)
-	  && addr1 == addr2);
+	  && gdbarch_addr_bits_remove(target_gdbarch, addr1) ==
+		  gdbarch_addr_bits_remove(target_gdbarch, addr2));
 }
 
 /* Returns true if {ASPACE2,ADDR2} falls within the range determined by
@@ -5546,9 +5548,12 @@ breakpoint_address_match_range (struct address_space *aspace1, CORE_ADDR addr1,
 				int len1, struct address_space *aspace2,
 				CORE_ADDR addr2)
 {
+  CORE_ADDR start = gdbarch_addr_bits_remove(target_gdbarch, addr1),
+	  point = gdbarch_addr_bits_remove(target_gdbarch, addr2),
+	  end = gdbarch_addr_bits_remove(target_gdbarch, addr1 + len1);
   return ((gdbarch_has_global_breakpoints (target_gdbarch)
 	   || aspace1 == aspace2)
-	  && addr2 >= addr1 && addr2 < addr1 + len1);
+	  && point >= start && point < end);
 }
 
 /* Returns true if {ASPACE,ADDR} matches the breakpoint BL.  BL may be
