@@ -414,7 +414,12 @@ handle_extended_wait (struct lwp_info *event_child, int wstat)
 	  else if (ret != new_pid)
 	    warning ("wait returned unexpected PID %d", ret);
 	  else if (!WIFSTOPPED (status))
-	    warning ("wait returned unexpected status 0x%x", status);
+	    {
+		  /* new thread exited?! better not do anything more */
+		  warning ("wait returned unexpected status 0x%x", status);
+		  linux_resume_one_lwp (event_child, event_child->stepping, 0, NULL);
+		  return;
+	    }
 	}
 
       linux_enable_event_reporting (new_pid);
