@@ -4541,7 +4541,13 @@ bpstat_what (bpstat bs_head)
   /* These operations may affect the bs->breakpoint_at state so they are
      delayed after MAIN_ACTION is decided above.  */
 
-  if (shlib_event)
+  if (shlib_event && !stop_on_solib_events && current_target.to_shortname &&
+	  !strcmp (current_target.to_shortname, "remote"))
+    {
+	  /* Delay adding solibs */
+	  add_solibs_on_stop = 1;
+    }
+  else if (shlib_event)
     {
       if (debug_infrun)
 	fprintf_unfiltered (gdb_stdlog, "bpstat_what: bp_shlib_event\n");
