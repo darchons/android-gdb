@@ -1155,6 +1155,12 @@ target_translate_tls_address (struct objfile *objfile, CORE_ADDR offset)
 #undef	MIN
 #define MIN(A, B) (((A) <= (B)) ? (A) : (B))
 
+// strnlen is not available on OS X, so we roll our own
+size_t mystrnlen(const char *begin, size_t maxlen) {
+  const char *end = memchr(begin, '\0', maxlen);
+  return end ? (end - begin) : maxlen;
+}
+
 /* target_read_string -- read a null terminated string, up to LEN bytes,
    from MEMADDR in target.  Set *ERRNOP to the errno code, or 0 if successful.
    Set *STRING to a pointer to malloc'd memory containing the data; the caller
@@ -1204,7 +1210,7 @@ target_read_string (CORE_ADDR memaddr, char **string, int len, int *errnop)
 
 	  if (sizeof (gdb_byte) == sizeof (char))
 	    {
-		  chunkterm = strnlen ((char*)buffer + i, (size_t)(chunksize - i));
+		  chunkterm = mystrnlen ((char*)buffer + i, (size_t)(chunksize - i));
 		  memcpy (*string + outstart, buffer + i, chunkterm);
 		  outstart += chunkterm;
 		  len -= chunkterm;
