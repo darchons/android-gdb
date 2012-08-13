@@ -81,6 +81,34 @@
 #endif
 #endif
 
+#ifndef HAVE_ELF32_AUXV_T
+typedef struct
+{
+  uint32_t a_type;   /* Entry type */
+  union
+    {
+      uint32_t a_val;    /* Integer value */
+      /* We use to have pointer elements added here.  We cannot do that,
+  though, since it does not work when using 32-bit definitions
+  on 64-bit platforms and vice versa.  */
+    } a_un;
+} Elf32_auxv_t;
+#endif
+
+#ifndef HAVE_ELF64_AUXV_T
+typedef struct
+{
+  uint64_t a_type;   /* Entry type */
+  union
+    {
+      uint64_t a_val;    /* Integer value */
+      /* We use to have pointer elements added here.  We cannot do that,
+  though, since it does not work when using 32-bit definitions
+  on 64-bit platforms and vice versa.  */
+    } a_un;
+} Elf64_auxv_t;
+#endif
+
 /* ``all_threads'' is keyed by the LWP ID, which we use as the GDB protocol
    representation of the thread ID.
 
@@ -384,7 +412,12 @@ handle_extended_wait (struct lwp_info *event_child, int wstat)
 	  else if (ret != new_pid)
 	    warning ("wait returned unexpected PID %d", ret);
 	  else if (!WIFSTOPPED (status))
-	    warning ("wait returned unexpected status 0x%x", status);
+	    {
+		  /* new thread exited?! better not do anything more */
+		  warning ("wait returned unexpected status 0x%x", status);
+		  linux_resume_one_lwp (event_child, event_child->stepping, 0, NULL);
+		  return;
+	    }
 	}
 
       linux_enable_event_reporting (new_pid);
@@ -495,6 +528,34 @@ get_stop_pc (struct lwp_info *lwp)
       && !lwp->stopped_by_watchpoint
       && lwp->last_status >> 16 == 0)
     stop_pc -= the_low_target.decr_pc_after_break;
+
+#if defined(__ANDROID__) && defined(__arm__)
+  /* Work around Android kernel bug introduced in
+     rev 255914b9 and fixed in rev 23b6f139, where
+     during a SIGILL due to a Thumb-2 instruction,
+     the exception PC is improperly adjusted to
+     point to the middle of the instruction  */
+  if (WSTOPSIG (lwp->last_status) == SIGILL)
+    {
+      unsigned short inst[2];
+      // don't use suspend. we don't get another chance to unsuspend
+      stop_all_lwps(0, lwp);
+      if (!(*the_target->read_memory) (stop_pc - sizeof(inst[0]),
+                                       (unsigned char *) inst,
+                                       sizeof(inst)) &&
+          inst[0] == 0xf7f0 && (inst[1] & 0xf000) == 0xa000)
+        {
+          struct regcache *regcache;
+          regcache = get_thread_regcache (get_lwp_thread (lwp), 1);
+          (*the_low_target.set_pc) (regcache, stop_pc -= sizeof(inst[0]));
+          if (debug_threads)
+            fprintf (stderr, "corrected thumb-2 breakpoint pc\n");
+        }
+      if (non_stop)
+        // continue other threads in non-stop mode
+        unstop_all_lwps(0, lwp);
+    }
+#endif
 
   if (debug_threads)
     fprintf (stderr, "stop pc is 0x%lx\n", (long) stop_pc);
@@ -3893,10 +3954,12 @@ regsets_fetch_inferior_registers (struct regcache *regcache)
       else
 	data = buf;
 
-#ifndef __sparc__
-      res = ptrace (regset->get_request, pid, nt_type, data);
-#else
+#if defined(__ANDROID__)
+      res = ptrace (regset->get_request, pid, (void*)nt_type, data);
+#elif defined(__sparc__)
       res = ptrace (regset->get_request, pid, data, nt_type);
+#else
+      res = ptrace (regset->get_request, pid, nt_type, data);
 #endif
       if (res < 0)
 	{
@@ -3966,10 +4029,12 @@ regsets_store_inferior_registers (struct regcache *regcache)
       else
 	data = buf;
 
-#ifndef __sparc__
-      res = ptrace (regset->get_request, pid, nt_type, data);
+#if defined(__ANDROID__)
+      res = ptrace (regset->get_request, pid, (void*)nt_type, data);
+#elif defined(__sparc__)
+      res = ptrace (regset->get_request, pid, data, nt_type);
 #else
-      res = ptrace (regset->get_request, pid, &iov, data);
+      res = ptrace (regset->get_request, pid, nt_type, data);
 #endif
 
       if (res == 0)
@@ -3978,10 +4043,12 @@ regsets_store_inferior_registers (struct regcache *regcache)
 	  regset->fill_function (regcache, buf);
 
 	  /* Only now do we write the register set.  */
-#ifndef __sparc__
-	  res = ptrace (regset->set_request, pid, nt_type, data);
-#else
+#if defined(__ANDROID__)
+	  res = ptrace (regset->set_request, pid, (void*)nt_type, data);
+#elif defined(__sparc__)
 	  res = ptrace (regset->set_request, pid, data, nt_type);
+#else
+	  res = ptrace (regset->set_request, pid, nt_type, data);
 #endif
 	}
 

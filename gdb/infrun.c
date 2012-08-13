@@ -358,6 +358,9 @@ show_stop_on_solib_events (struct ui_file *file, int from_tty,
 		    value);
 }
 
+/* Nonzero if we delay adding solibs */
+int add_solibs_on_stop;
+
 /* Nonzero means expecting a trace trap
    and should stop the inferior and return silently when it happens.  */
 
@@ -2713,6 +2716,18 @@ wait_for_inferior (void)
 
       if (!ecs->wait_some_more)
 	break;
+    }
+
+  if (add_solibs_on_stop)
+    {
+	  add_solibs_on_stop = 0;
+	  target_terminal_ours_for_output ();
+#ifdef SOLIB_ADD
+	  SOLIB_ADD (NULL, 0, &current_target, auto_solib_add);
+#else
+	  solib_add (NULL, 0, &current_target, auto_solib_add);
+#endif
+	  target_terminal_inferior ();
     }
 
   do_cleanups (old_cleanups);
@@ -7215,6 +7230,8 @@ to the user would be loading/unloading of a new library."),
 			    NULL,
 			    show_stop_on_solib_events,
 			    &setlist, &showlist);
+
+  add_solibs_on_stop = 0;
 
   add_setshow_enum_cmd ("follow-fork-mode", class_run,
 			follow_fork_mode_kind_names,

@@ -8070,6 +8070,14 @@ gdb_osabi=
 build_gdbserver=
 targ=$target; . ${srcdir}/configure.tgt
 
+case $targ in
+arm*-*-linux*)
+
+$as_echo "#define TARGET_ARM_LINUX 1" >>confdefs.h
+
+  ;;
+esac
+
 # Fetch the default architecture and default target vector from BFD.
 targ=$target; . $srcdir/../bfd/config.bfd
 

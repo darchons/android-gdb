@@ -49,12 +49,16 @@ typedef enum
   PS_NOFREGS			/* FPU register set not available.  */
 } ps_err_e;
 
+#ifndef __ANDROID__
 #ifndef HAVE_LWPID_T
 typedef unsigned int lwpid_t;
 #endif
+#endif
 
+#ifndef __ANDROID__
 #ifndef HAVE_PSADDR_T
 typedef void *psaddr_t;
+#endif
 #endif
 
 #ifndef HAVE_PRGREGSET_T

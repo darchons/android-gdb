@@ -1194,6 +1194,12 @@ target_translate_tls_address (struct objfile *objfile, CORE_ADDR offset)
 #undef	MIN
 #define MIN(A, B) (((A) <= (B)) ? (A) : (B))
 
+// strnlen is not available on OS X, so we roll our own
+size_t mystrnlen(const char *begin, size_t maxlen) {
+  const char *end = memchr(begin, '\0', maxlen);
+  return end ? (end - begin) : maxlen;
+}
+
 /* target_read_string -- read a null terminated string, up to LEN bytes,
    from MEMADDR in target.  Set *ERRNOP to the errno code, or 0 if successful.
    Set *STRING to a pointer to malloc'd memory containing the data; the caller
@@ -1203,70 +1209,66 @@ target_translate_tls_address (struct objfile *objfile, CORE_ADDR offset)
 int
 target_read_string (CORE_ADDR memaddr, char **string, int len, int *errnop)
 {
-  int tlen, origlen, offset, i;
-  gdb_byte buf[4];
-  int errcode = 0;
-  char *buffer;
-  int buffer_allocated;
-  char *bufptr;
-  unsigned int nbytes_read = 0;
+  /* chunk buffer */
+  gdb_byte buffer[64];
+  /* current chunk size */
+  int chunksize;
+  /* position of null-terminator in current chunk, if any */
+  int chunkterm;
+  /* start of current chunk in target */
+  CORE_ADDR memstart;
+  /* start of current chunk in output */
+  int outstart;
+  /* currently allocated output length */
+  int outlen;
+  int i;
 
-  gdb_assert (string);
+  chunksize = MIN (sizeof(buffer) / sizeof(gdb_byte), (len + 3) & ~3);
+  memstart = memaddr & ~3;
+  outstart = 0;
+  chunkterm = outlen = chunksize;
+  *string = xmalloc (outlen);
+  *errnop = 0;
 
-  /* Small for testing.  */
-  buffer_allocated = 4;
-  buffer = xmalloc (buffer_allocated);
-  bufptr = buffer;
-
-  origlen = len;
-
-  while (len > 0)
+  while (len > 0 && chunksize == chunkterm)
     {
-      tlen = MIN (len, 4 - (memaddr & 3));
-      offset = memaddr & 3;
-
-      errcode = target_read_memory (memaddr & ~3, buf, sizeof buf);
-      if (errcode != 0)
-	{
-	  /* The transfer request might have crossed the boundary to an
-	     unallocated region of memory.  Retry the transfer, requesting
-	     a single byte.  */
-	  tlen = 1;
-	  offset = 0;
-	  errcode = target_read_memory (memaddr, buf, 1);
-	  if (errcode != 0)
-	    goto done;
-	}
-
-      if (bufptr - buffer + tlen > buffer_allocated)
-	{
-	  unsigned int bytes;
-
-	  bytes = bufptr - buffer;
-	  buffer_allocated *= 2;
-	  buffer = xrealloc (buffer, buffer_allocated);
-	  bufptr = buffer + bytes;
-	}
-
-      for (i = 0; i < tlen; i++)
-	{
-	  *bufptr++ = buf[i + offset];
-	  if (buf[i + offset] == '\000')
+	  *errnop = target_read_memory (memstart, buffer,
+			    chunksize * sizeof (gdb_byte));
+	  if (*errnop != 0)
 	    {
-	      nbytes_read += i + 1;
-	      goto done;
+		  if (chunksize <= 4)
+		    break;
+		  chunkterm = chunksize = (chunksize / 2 + 3) & ~3;
+		  continue;
 	    }
-	}
 
-      memaddr += tlen;
-      len -= tlen;
-      nbytes_read += tlen;
+	  if (memstart > memaddr)
+	    *string = xrealloc (*string, outlen += chunksize);
+	  i = memstart >= memaddr ? 0 : memaddr - memstart;
+	  memstart += chunksize;
+
+	  if (sizeof (gdb_byte) == sizeof (char))
+	    {
+		  chunkterm = mystrnlen ((char*)buffer + i, (size_t)(chunksize - i));
+		  memcpy (*string + outstart, buffer + i, chunkterm);
+		  outstart += chunkterm;
+		  len -= chunkterm;
+		  chunkterm += i;
+	    }
+	  else
+	    {
+		  for (chunkterm = i; chunkterm < chunksize; ++chunkterm)
+		    if (buffer[chunkterm] == '\x00')
+		      break;
+		  for (; i < chunkterm; ++outstart, --len, ++i)
+		    *(*string + outstart) = (char)buffer[i];
+	    }
     }
-done:
-  *string = buffer;
-  if (errnop != NULL)
-    *errnop = errcode;
-  return nbytes_read;
+  /* always null-terminate; realloc if needed */
+  if (outstart == outlen)
+    *string = xrealloc (*string, outlen + 1);
+  *(*string + outstart) = '\x00';
+  return outstart;
 }
 
 struct target_section_table *

@@ -1988,7 +1988,7 @@ find_pc_sect_symtab (CORE_ADDR pc, struct obj_section *section)
     result = objfile->sf->qf->find_pc_sect_symtab (objfile,
 						   msymbol,
 						   pc, section,
-						   1);
+						   0);
     if (result)
       return result;
   }

@@ -4467,7 +4467,13 @@ bpstat_what (bpstat bs_head)
   /* These operations may affect the bs->breakpoint_at state so they are
      delayed after MAIN_ACTION is decided above.  */
 
-  if (shlib_event)
+  if (shlib_event && !stop_on_solib_events && current_target.to_shortname &&
+	  !strcmp (current_target.to_shortname, "remote"))
+    {
+	  /* Delay adding solibs */
+	  add_solibs_on_stop = 1;
+    }
+  else if (shlib_event)
     {
       if (debug_infrun)
 	fprintf_unfiltered (gdb_stdlog, "bpstat_what: bp_shlib_event\n");
@@ -5331,7 +5337,8 @@ breakpoint_has_pc (struct breakpoint *b,
   for (; bl; bl = bl->next)
     {
       if (bl->pspace == pspace
-	  && bl->address == pc
+	  && gdbarch_addr_bits_remove(target_gdbarch, bl->address) ==
+		  gdbarch_addr_bits_remove(target_gdbarch, pc)
 	  && (!overlay_debugging || bl->section == section))
 	return 1;	  
     }
@@ -5463,7 +5470,8 @@ breakpoint_address_match (struct address_space *aspace1, CORE_ADDR addr1,
 {
   return ((gdbarch_has_global_breakpoints (target_gdbarch)
 	   || aspace1 == aspace2)
-	  && addr1 == addr2);
+	  && gdbarch_addr_bits_remove(target_gdbarch, addr1) ==
+		  gdbarch_addr_bits_remove(target_gdbarch, addr2));
 }
 
 /* Returns true if {ASPACE2,ADDR2} falls within the range determined by
@@ -5476,9 +5484,12 @@ breakpoint_address_match_range (struct address_space *aspace1, CORE_ADDR addr1,
 				int len1, struct address_space *aspace2,
 				CORE_ADDR addr2)
 {
+  CORE_ADDR start = gdbarch_addr_bits_remove(target_gdbarch, addr1),
+	  point = gdbarch_addr_bits_remove(target_gdbarch, addr2),
+	  end = gdbarch_addr_bits_remove(target_gdbarch, addr1 + len1);
   return ((gdbarch_has_global_breakpoints (target_gdbarch)
 	   || aspace1 == aspace2)
-	  && addr2 >= addr1 && addr2 < addr1 + len1);
+	  && point >= start && point < end);
 }
 
 /* Returns true if {ASPACE,ADDR} matches the breakpoint BL.  BL may be
@@ -13945,7 +13956,11 @@ hardware.)"),
 			    show_can_use_hw_watchpoints,
 			    &setlist, &showlist);
 
+#ifdef __ANDROID__
+  can_use_hw_watchpoints = 0;
+#else
   can_use_hw_watchpoints = 1;
+#endif
 
   /* Tracepoint manipulation commands.  */
 

@@ -854,6 +854,9 @@
    moved. */
 #undef SYSTEM_GDBINIT_RELOCATABLE
 
+/* Define if targeting Linux on ARM. */
+#undef TARGET_ARM_LINUX
+
 /* Define if <thread_db.h> has the TD_NOTALLOC error code. */
 #undef THREAD_DB_HAS_TD_NOTALLOC
 
