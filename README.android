@@ -1,0 +1,68 @@
+Local patches applied to gdb-7.1.x-android:
+
+Please include a change to this file with each local patch,
+*and* each subsequent modification of the patch.
+And please don't combine patch checkins, keep them separate.
+This will simplify reconstructing the patch.
+
+Append new entries to the end of this file.
+Each entry shall at least include a properly written FSF-style ChangeLog entry.
+As patches are installed in the main FSF tree, remove the corresponding entry
+from this file (or reword it to denote what local mod remains).
+
+2010-06-09  Doug Evans  <dje@google.com>
+
+	gdb/gdbserver/
+	* linux-low.c (linux_test_for_tracefork): If __ANDROID__, skip test
+	and set linux_supports_tracefork_flag to 1.
+
+	Provide workaround for gcc bugs mentioned in 2450218, 2447896.
+	* arm-tdep.c (skip_gcc_pic_assignment_1): New function.
+	(skip_gcc_thumb_pic_assignment_1): New function.
+	(skip_gcc_arm_pic_assignment_1): New function.
+	(skip_gcc_arm_pic_assignment_2): New function.
+	(skip_gcc_pic_assignment): New function.
+	(arm_skip_prologue): Call it.
+
+	Workaround for 2447365.
+	* breakpoint.c (_initialize_breakpoint): Set default value for
+	can_use_hw_watchpoints to zero.
+
+	gdb/gdbserver/
+	* thread-db.c (LIBTHREAD_DB_SO): Provide definition #ifdef __ANDROID__.
+
+	* arm-linux-tdep.c (arm_linux_init_abi): Use android's value for
+	tdep->jb_pc.  Hack.
+
+	* arm-linux-tdep.c: #include frame-unwind.h.
+	(arm_android_sigreturn_init, arm_android_sigreturn_frame_this_id,
+	arm_android_sigreturn_frame_prev_register,
+	arm_android_sigreturn_frame_sniffer): New functions.
+	(arm_android_sigreturn_tramp_frame): New static global.
+	(arm_linux_init_abi): Register android signal frame sniffer.
+
+2010-06-11  Doug Evans  <dje@google.com>
+
+	Add expat to tree.
+	* configure.ac (host_libs): Add expat.
+	* configure: Regenerate.
+	* Makefile.def (host_modules): Add expat.
+	(dependencies): Have all-gdb depend on all-expat.
+	* Makefile.in: Regenerate.
+	* gdb/configure.ac (expat checking): Use ../expat if it exists.
+	* gdb/configure: Regenerate.
+	* gdb/Makefile.in (EXPAT_DIR, EXPAT_SRC, EXPAT_DEPS): New vars.
+	(EXPAT_INCLUDE, EXPAT_CFLAGS): New vars.
+	(INTERNAL_CFLAGS_BASE): Add EXPAT_CFLAGS.
+	(CDEPS): Add EXPAT_DEPS.
+
+2010-08-20  Jing Yu  <jingyu@google.com>
+            Jim Huang  <jserv@0xlab.org>
+
+	* Makefile.def (host_modules): Build static expat internally.
+	* Makefile.in: Regenerate.
+
+2010-11-15  Doug Kwan  <dougkwan@google.com>
+
+	* gdb/gdbserver/gdb_proc_service.h: Workaround build breakage with
+	bionic.

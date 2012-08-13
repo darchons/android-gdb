@@ -245,6 +245,12 @@ gdb_osabi=
 build_gdbserver=
 targ=$target; . ${srcdir}/configure.tgt
 
+case $targ in
+arm*-*-linux*)
+  AC_DEFINE(TARGET_ARM_LINUX, 1, [Define if targeting Linux on ARM.])
+  ;;
+esac
+
 # Fetch the default architecture and default target vector from BFD.
 targ=$target; . $srcdir/../bfd/config.bfd
 

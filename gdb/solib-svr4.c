@@ -1459,7 +1459,11 @@ enable_break (struct svr4_info *info, int from_tty)
     {
       struct obj_section *os;
 
+#ifndef TARGET_ARM_LINUX
       sym_addr = gdbarch_addr_bits_remove
+#else
+      sym_addr =
+#endif
 	(target_gdbarch, gdbarch_convert_from_func_ptr_addr (target_gdbarch,
 							     sym_addr,
 							     &current_target));

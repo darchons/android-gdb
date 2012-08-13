@@ -79,7 +79,7 @@ ustinc = @ustinc@
 # -I${srcdir} for our headers.
 # -I$(srcdir)/../regformats for regdef.h.
 INCLUDE_CFLAGS = -I. -I${srcdir} -I$(srcdir)/../common \
-	-I$(srcdir)/../regformats -I$(INCLUDE_DIR)
+	-I$(srcdir)/../regformats -I$(INCLUDE_DIR) @thread_db_inc@
 
 # M{H,T}_CFLAGS, if defined, has host- and target-dependent CFLAGS
 # from the config/ directory.
@@ -127,7 +127,8 @@ SFILES=	$(srcdir)/gdbreplay.c $(srcdir)/inferiors.c \
 	$(srcdir)/hostio.c $(srcdir)/hostio-errno.c \
 	$(srcdir)/common/common-utils.c $(srcdir)/common/xml-utils.c \
 	$(srcdir)/common/linux-osdata.c $(srcdir)/common/ptid.c \
-	$(srcdir)/common/buffer.c
+	$(srcdir)/common/buffer.c \
+	$(srcdir)/../../android/libthread_db.c
 
 DEPFILES = @GDBSERVER_DEPFILES@
 
@@ -424,6 +425,11 @@ ptid.o: ../common/ptid.c $(ptid_h)
 
 buffer.o: ../common/buffer.c $(server_h)
 	$(CC) -c $(CPPFLAGS) $(INTERNAL_CFLAGS) $< -DGDBSERVER
+
+thread_db_h = $(srcdir)/../../android/thread_db.h
+
+libthread_db.o: ../../android/libthread_db.c $(thread_db_h)
+	$(CC) -o libthread_db.o -c $(CPPFLAGS) $(INTERNAL_CFLAGS) $<
 
 # We build memmem.c without -Werror because this file is not under
 # our control.  On LynxOS, the compiler generates some warnings
