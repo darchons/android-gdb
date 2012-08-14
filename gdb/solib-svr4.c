@@ -209,6 +209,18 @@ lm_addr_check (struct so_list *so, bfd *abfd)
 
       dynaddr = bfd_section_vma (abfd, dyninfo_sect);
 
+#ifdef TARGET_ARM_LINUX
+      /* Workaround Android 4.1 linker bug that
+         gives gdb an incorrect linker base address */
+      if (! l_addr && ! l_dynaddr &&
+        strcmp (so->so_original_name, "/system/bin/linker") == 0 &&
+        target_auxv_search (&current_target, AT_BASE, &l_addr) > 0)
+	{
+	  so->lm_info->l_ld = l_addr + dynaddr;
+	  goto set_addr;
+	}
+#endif
+
       if (dynaddr + l_addr != l_dynaddr)
 	{
 	  CORE_ADDR align = 0x1000;
