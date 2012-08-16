@@ -970,6 +970,10 @@ struct svr4_library_list
   /* Inferior address of struct link_map used for the main executable.  It is
      NULL if not known.  */
   CORE_ADDR main_lm;
+
+  /* Inferior address of struct r_debug used for the debugger interface.  It is
+     NULL if not known.  */
+  CORE_ADDR debug_base;
 };
 
 /* Implementation for target_so_ops.free_so.  */
@@ -1039,6 +1043,8 @@ svr4_library_list_start_list (struct gdb_xml_parser *parser,
   struct svr4_library_list *list = user_data;
   const char *version = xml_find_attribute (attributes, "version")->value;
   struct gdb_xml_value *main_lm = xml_find_attribute (attributes, "main-lm");
+  struct gdb_xml_value *debug_base =
+    xml_find_attribute (attributes, "debug-base");
 
   if (strcmp (version, "1.0") != 0)
     gdb_xml_error (parser,
@@ -1047,6 +1053,9 @@ svr4_library_list_start_list (struct gdb_xml_parser *parser,
 
   if (main_lm)
     list->main_lm = *(ULONGEST *) main_lm->value;
+
+  if (debug_base)
+    list->debug_base = *(ULONGEST *) debug_base->value;
 }
 
 /* The allowed elements and attributes for an XML library list.
@@ -1075,6 +1084,7 @@ static const struct gdb_xml_attribute svr4_library_list_attributes[] =
 {
   { "version", GDB_XML_AF_NONE, NULL, NULL },
   { "main-lm", GDB_XML_AF_OPTIONAL, gdb_xml_parse_attr_ulongest, NULL },
+  { "debug-base", GDB_XML_AF_OPTIONAL, gdb_xml_parse_attr_ulongest, NULL },
   { NULL, GDB_XML_AF_NONE, NULL, NULL }
 };
 
@@ -1274,10 +1284,11 @@ svr4_current_sos (void)
 
   if (svr4_current_sos_via_xfer_libraries (&library_list))
     {
-      if (library_list.main_lm)
+      if (library_list.main_lm || library_list.debug_base)
 	{
 	  info = get_svr4_info ();
 	  info->main_lm_addr = library_list.main_lm;
+	  info->debug_base = library_list.debug_base;
 	}
 
       return library_list.head ? library_list.head : svr4_default_sos ();
