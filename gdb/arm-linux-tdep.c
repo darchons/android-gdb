@@ -1152,7 +1152,7 @@ arm_linux_init_abi (struct gdbarch_info info,
   if (tdep->fp_model == ARM_FLOAT_AUTO)
     tdep->fp_model = ARM_FLOAT_FPA;
 
-#ifdef __ANDROID__
+#ifdef TARGET_ARM_LINUX
   /* FIXME: HACK.  We need some runtime test for whether we're running an
      android program.  Having an android indicator in .note.ABI-tag is
      one possible way.  */

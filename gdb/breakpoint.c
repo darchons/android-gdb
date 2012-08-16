@@ -13943,7 +13943,7 @@ hardware.)"),
 			    show_can_use_hw_watchpoints,
 			    &setlist, &showlist);
 
-#ifdef __ANDROID__
+#ifdef TARGET_ARM_LINUX
   can_use_hw_watchpoints = 0;
 #else
   can_use_hw_watchpoints = 1;
