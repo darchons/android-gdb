@@ -64,7 +64,7 @@ enum {
 };
 
 typedef int32_t td_err_e;
-typedef uint32_t td_event_e;
+typedef int32_t td_event_e;
 typedef uint32_t td_notify_e;
 typedef uint32_t td_thr_state_e;
 typedef pthread_t thread_t;
@@ -133,28 +133,32 @@ extern td_err_e td_ta_new(struct ps_prochandle * proc_handle, td_thragent_t ** t
 
 extern td_err_e td_ta_delete(td_thragent_t * ta);
 
-extern td_err_e td_ta_set_event(const td_thragent_t * agent, td_thr_events_t * event);
+extern td_err_e td_ta_set_event(td_thragent_t const * agent, td_thr_events_t * event);
 
-extern td_err_e td_ta_event_addr(const td_thragent_t * agent, td_event_e event, td_notify_t * notify);
+extern td_err_e td_ta_event_addr(td_thragent_t const * agent, td_event_e event, td_notify_t * notify);
 
 extern td_err_e td_ta_clear_event(const td_thragent_t * ta_arg,
 				  td_thr_events_t * event);
 
-extern td_err_e td_ta_event_getmsg(const td_thragent_t * agent, td_event_msg_t * event);
+extern td_err_e td_ta_event_getmsg(td_thragent_t const * agent, td_event_msg_t * event);
 
-extern td_err_e td_ta_map_lwp2thr(const td_thragent_t * agent, lwpid_t lwpid,
+extern td_err_e td_ta_map_lwp2thr(td_thragent_t const * agent, lwpid_t lwpid,
 				  td_thrhandle_t *th);
 
-extern td_err_e td_thr_get_info(const td_thrhandle_t * handle,
+extern td_err_e td_thr_get_info(td_thrhandle_t const * handle,
 				td_thrinfo_t * info);
 
-extern td_err_e td_thr_event_enable(const td_thrhandle_t * handle,
-				    int event);
+extern td_err_e td_thr_event_enable(td_thrhandle_t const * handle,
+				    td_event_e event);
 
-extern td_err_e td_ta_thr_iter(const td_thragent_t * agent, td_thr_iter_f * func, void * cookie,
+extern td_err_e td_ta_thr_iter(td_thragent_t const * agent, td_thr_iter_f * func, void * cookie,
                                td_thr_state_e state, int32_t prio, sigset_t * sigmask, uint32_t user_flags);
 
 extern char const ** td_symbol_list(void);
+
+extern td_err_e td_thr_event_enable(td_thrhandle_t const * handle, td_event_e event);
+
+extern td_err_e td_thr_get_info(td_thrhandle_t const * handle, td_thrinfo_t * info);
 
 extern td_err_e td_thr_tls_get_addr(const td_thrhandle_t * th,
 				    psaddr_t map_address, size_t offset,

@@ -2622,6 +2622,7 @@ wait_for_inferior (int treat_exec_as_sigtrap)
   if (add_solibs_on_stop)
     {
 	  add_solibs_on_stop = 0;
+	  printf_unfiltered (_("Loading libraries and symbols...\n"));
 	  target_terminal_ours_for_output ();
 #ifdef SOLIB_ADD
 	  SOLIB_ADD (NULL, 0, &current_target, auto_solib_add);

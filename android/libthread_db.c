@@ -212,7 +212,7 @@ td_ta_delete(td_thragent_t * ta)
 /* NOTE: not used by gdb 7.0 */
 
 td_err_e
-td_ta_set_event(const td_thragent_t * agent, td_thr_events_t * events)
+td_ta_set_event(td_thragent_t const * agent, td_thr_events_t * events)
 {
     return TD_OK;
 }
@@ -224,7 +224,7 @@ static td_thrhandle_t gEventMsgHandle;
 /* NOTE: not used by gdb 7.0 */
 
 static int
-_event_getmsg_helper(const td_thrhandle_t * handle, void * bkpt_addr)
+_event_getmsg_helper(td_thrhandle_t const * handle, void * bkpt_addr)
 {
     void * pc;
 
@@ -243,7 +243,7 @@ _event_getmsg_helper(const td_thrhandle_t * handle, void * bkpt_addr)
 /* NOTE: not used by gdb 7.0 */
 
 td_err_e
-td_ta_event_getmsg(const td_thragent_t * agent, td_event_msg_t * event)
+td_ta_event_getmsg(td_thragent_t const * agent, td_event_msg_t * event)
 {
     td_err_e err;
     void * bkpt_addr;
@@ -266,7 +266,7 @@ td_ta_event_getmsg(const td_thragent_t * agent, td_event_msg_t * event)
 
 
 td_err_e
-td_ta_map_lwp2thr(const td_thragent_t * agent, lwpid_t lwpid,
+td_ta_map_lwp2thr(td_thragent_t const * agent, lwpid_t lwpid,
 		  td_thrhandle_t *th)
 {
     th->pid = ps_getpid(agent->ph);
@@ -276,7 +276,7 @@ td_ta_map_lwp2thr(const td_thragent_t * agent, lwpid_t lwpid,
 
 
 td_err_e
-td_thr_get_info(const td_thrhandle_t * handle, td_thrinfo_t * info)
+td_thr_get_info(td_thrhandle_t const * handle, td_thrinfo_t * info)
 {
     info->ti_tid = handle->tid;
     info->ti_lid = handle->tid; // Our pthreads uses kernel ids for tids
@@ -289,7 +289,7 @@ td_thr_get_info(const td_thrhandle_t * handle, td_thrinfo_t * info)
 /* NOTE: not used by gdb 7.0 */
 
 td_err_e
-td_thr_event_enable(const td_thrhandle_t * handle, int event)
+td_thr_event_enable(td_thrhandle_t const * handle, td_event_e event)
 {
     // I don't think we need to do anything here...
     return TD_OK;
@@ -299,7 +299,7 @@ td_thr_event_enable(const td_thrhandle_t * handle, int event)
 /* NOTE: not used by gdb 7.0 */
 
 td_err_e
-td_ta_event_addr(const td_thragent_t * agent, td_event_e event, td_notify_t * notify_out)
+td_ta_event_addr(td_thragent_t const * agent, td_event_e event, td_notify_t * notify_out)
 {
     int32_t err;
 
@@ -331,7 +331,7 @@ td_ta_clear_event(const td_thragent_t * ta_arg, td_thr_events_t * event)
 
 
 td_err_e
-td_ta_thr_iter(const td_thragent_t * agent, td_thr_iter_f * func, void * cookie,
+td_ta_thr_iter(td_thragent_t const * agent, td_thr_iter_f * func, void * cookie,
                td_thr_state_e state, int32_t prio, sigset_t * sigmask, uint32_t user_flags)
 {
     td_err_e err = TD_OK;
