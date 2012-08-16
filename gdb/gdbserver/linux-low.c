@@ -5712,7 +5712,9 @@ linux_qxfer_libraries_svr4 (const char *annex, unsigned char *readbuf,
       int r_version, header_done = 0;
 
       document = xmalloc (allocated);
-      strcpy (document, "<library-list-svr4 version=\"1.0\"");
+      sprintf (document,
+        "<library-list-svr4 version=\"1.0\" debug-base=\"0x%lx\"",
+        (unsigned long) priv->r_debug);
       p = document + strlen (document);
 
       r_version = 0;
