@@ -5818,6 +5818,12 @@ linux_qxfer_libraries_svr4 (const char *annex, unsigned char *readbuf,
 	      break;
 	    }
 
+	  if (!header_done && lm_prev == 0)
+	    {
+	      sprintf (p, " main-lm=\"0x%lx\"", (unsigned long) lm_addr);
+	      p = p + strlen (p);
+	    }
+
 	  /* Not checking for error because reading may stop before
 	     we've got PATH_MAX worth of characters.  */
 	  libname[0] = '\0';
@@ -5852,11 +5858,6 @@ linux_qxfer_libraries_svr4 (const char *annex, unsigned char *readbuf,
 			    name, (unsigned long) lm_addr,
 			    (unsigned long) l_addr, (unsigned long) l_ld);
 	      free (name);
-	    }
-	  else if (lm_prev == 0)
-	    {
-	      sprintf (p, " main-lm=\"0x%lx\"", (unsigned long) lm_addr);
-	      p = p + strlen (p);
 	    }
 
 	  if (l_next == 0)
