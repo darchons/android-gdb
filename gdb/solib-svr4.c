@@ -981,6 +981,10 @@ struct svr4_library_list
 {
   struct so_list *head, **tailp;
 
+  /* Flag indicating if the first element in the list should be ignored for
+     being the main executable */
+  int ignore_first;
+
   /* Inferior address of struct link_map used for the main executable.  It is
      NULL if not known.  */
   CORE_ADDR main_lm;
@@ -1033,6 +1037,13 @@ library_list_start_library (struct gdb_xml_parser *parser,
   ULONGEST *l_ldp = xml_find_attribute (attributes, "l_ld")->value;
   struct so_list *new_elem;
 
+  if (list->ignore_first)
+    {
+      list->ignore_first = 0;
+      list->main_lm = *lmp;
+      return;
+    }
+
   new_elem = XZALLOC (struct so_list);
   new_elem->lm_info = XZALLOC (struct lm_info);
   new_elem->lm_info->lm_addr = *lmp;
@@ -1056,7 +1067,6 @@ svr4_library_list_start_list (struct gdb_xml_parser *parser,
 {
   struct svr4_library_list *list = user_data;
   const char *version = xml_find_attribute (attributes, "version")->value;
-  struct gdb_xml_value *main_lm = xml_find_attribute (attributes, "main-lm");
   struct gdb_xml_value *debug_base =
     xml_find_attribute (attributes, "debug-base");
 
@@ -1064,9 +1074,6 @@ svr4_library_list_start_list (struct gdb_xml_parser *parser,
     gdb_xml_error (parser,
 		   _("SVR4 Library list has unsupported version \"%s\""),
 		   version);
-
-  if (main_lm)
-    list->main_lm = *(ULONGEST *) main_lm->value;
 
   if (debug_base)
     list->debug_base = *(ULONGEST *) debug_base->value;
@@ -1097,7 +1104,6 @@ static const struct gdb_xml_element svr4_library_list_children[] =
 static const struct gdb_xml_attribute svr4_library_list_attributes[] =
 {
   { "version", GDB_XML_AF_NONE, NULL, NULL },
-  { "main-lm", GDB_XML_AF_OPTIONAL, gdb_xml_parse_attr_ulongest, NULL },
   { "debug-base", GDB_XML_AF_OPTIONAL, gdb_xml_parse_attr_ulongest, NULL },
   { NULL, GDB_XML_AF_NONE, NULL, NULL }
 };
@@ -1116,13 +1122,15 @@ static const struct gdb_xml_element svr4_library_list_elements[] =
    empty, caller is responsible for freeing all its entries.  */
 
 static int
-svr4_parse_libraries (const char *document, struct svr4_library_list *list)
+svr4_parse_libraries (const char *document, struct svr4_library_list *list,
+		      int ignore_first)
 {
   struct cleanup *back_to = make_cleanup (svr4_free_library_list,
 					  &list->head);
 
   memset (list, 0, sizeof (*list));
   list->tailp = &list->head;
+  list->ignore_first = ignore_first;
   if (gdb_xml_parse_quick (_("target library list"), "library-list.dtd",
 			   svr4_library_list_elements, document, list) == 0)
     {
@@ -1142,7 +1150,8 @@ svr4_parse_libraries (const char *document, struct svr4_library_list *list)
    empty, caller is responsible for freeing all its entries.  */
 
 static int
-svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list)
+svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list,
+				     int ignore_first)
 {
   char *svr4_library_document;
   int result;
@@ -1156,7 +1165,7 @@ svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list)
     return 0;
 
   back_to = make_cleanup (xfree, svr4_library_document);
-  result = svr4_parse_libraries (svr4_library_document, list);
+  result = svr4_parse_libraries (svr4_library_document, list, ignore_first);
   do_cleanups (back_to);
 
   return result;
@@ -1165,7 +1174,8 @@ svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list)
 #else
 
 static int
-svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list)
+svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list,
+				     int ignore_first)
 {
   return 0;
 }
@@ -1307,6 +1317,13 @@ svr4_current_sos (void)
 	}
     }
 
+  /* Assume that everything is a library if the dynamic loader was loaded
+     late by a static executable.  */
+  if (exec_bfd && bfd_get_section_by_name (exec_bfd, ".dynamic") == NULL)
+    ignore_first = 0;
+  else
+    ignore_first = 1;
+
   /* Fall back to manual examination of the target if the packet is not
      supported or gdbserver failed to find DT_DEBUG.  gdb.server/solib-list.exp
      tests a case where gdbserver cannot find the shared libraries list while
@@ -1315,7 +1332,7 @@ svr4_current_sos (void)
      Unfortunately statically linked inferiors will also fall back through this
      suboptimal code path.  */
 
-  if (svr4_current_sos_via_xfer_libraries (&library_list))
+  if (svr4_current_sos_via_xfer_libraries (&library_list, ignore_first))
     {
       if (library_list.main_lm || library_list.debug_base)
 	{
@@ -1335,13 +1352,6 @@ svr4_current_sos (void)
      must not be a dynamically linked executable.  Hmm.  */
   if (! info->debug_base)
     return svr4_default_sos ();
-
-  /* Assume that everything is a library if the dynamic loader was loaded
-     late by a static executable.  */
-  if (exec_bfd && bfd_get_section_by_name (exec_bfd, ".dynamic") == NULL)
-    ignore_first = 0;
-  else
-    ignore_first = 1;
 
   back_to = make_cleanup (svr4_free_library_list, &head);
 
