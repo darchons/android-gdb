@@ -5355,18 +5355,13 @@ linux_qxfer_libraries_svr4 (const char *annex, unsigned char *readbuf,
 	      break;
 	    }
 
-	  if (!header_done && lm_prev == 0)
-	    {
-	      sprintf (p, " main-lm=\"0x%lx\"", (unsigned long) lm_addr);
-	      p = p + strlen (p);
-	    }
-
 	  /* Not checking for error because reading may stop before
 	     we've got PATH_MAX worth of characters.  */
 	  libname[0] = '\0';
 	  linux_read_memory (l_name, libname, sizeof (libname) - 1);
 	  libname[sizeof (libname) - 1] = '\0';
-	  if (libname[0] != '\0')
+	  /* Always include the first entry, i.e. the main executable */
+	  if (libname[0] != '\0' || lm_prev == 0)
 	    {
 	      /* 6x the size for xml_escape_text below.  */
 	      size_t len = 6 * strlen ((char *) libname);
