@@ -710,6 +710,9 @@
 /* Define if the sysroot directory should be relocated when GDB is moved. */
 #undef TARGET_SYSTEM_ROOT_RELOCATABLE
 
+/* Define if targeting Linux on ARM. */
+#undef TARGET_ARM_LINUX
+
 /* Define if <thread_db.h> has the TD_NOTALLOC error code. */
 #undef THREAD_DB_HAS_TD_NOTALLOC
 
