@@ -1480,12 +1480,14 @@ enable_break (struct svr4_info *info, int from_tty)
 
 #ifndef TARGET_ARM_LINUX
       sym_addr = gdbarch_addr_bits_remove
-#else
-      sym_addr =
-#endif
 	(target_gdbarch, gdbarch_convert_from_func_ptr_addr (target_gdbarch,
 							     sym_addr,
 							     &current_target));
+#else
+      sym_addr = gdbarch_convert_from_func_ptr_addr (target_gdbarch,
+						     sym_addr,
+						     &current_target);
+#endif
 
       /* On at least some versions of Solaris there's a dynamic relocation
 	 on _r_debug.r_brk and SYM_ADDR may not be relocated yet, e.g., if
