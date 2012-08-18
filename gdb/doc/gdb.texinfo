@@ -39451,6 +39451,10 @@ Additionally the single @code{main-lm} attribute specifies address of
 @code{struct link_map} used for the main executable.  This parameter is used
 for TLS access and its presence is optional.
 
+Additionally the single @code{debug-base} attribute specifies the address of
+the @code{struct r_debug} used for the debugger interface.  This attribute
+is optional.
+
 @value{GDBN} must be linked with the Expat library to support XML
 SVR4 library lists.  @xref{Expat}.
 
@@ -39458,7 +39462,7 @@ A simple memory map, with two loaded libraries (which do not use prelink),
 looks like this:
 
 @smallexample
-<library-list-svr4 version="1.0" main-lm="0xe4f8f8">
+<library-list-svr4 version="1.0" main-lm="0xe4f8f8" debug-base="0xe4f84c">
   <library name="/lib/ld-linux.so.2" lm="0xe4f51c" l_addr="0xe2d000"
            l_ld="0xe4eefc"/>
   <library name="/lib/libc.so.6" lm="0xe4fbe8" l_addr="0x154000"
@@ -39473,6 +39477,7 @@ The format of an SVR4 library list is described by this DTD:
 <!ELEMENT library-list-svr4  (library)*>
 <!ATTLIST library-list-svr4  version CDATA   #FIXED  "1.0">
 <!ATTLIST library-list-svr4  main-lm CDATA   #IMPLIED>
+<!ATTLIST library-list-svr4  debug-base CDATA #IMPLIED>
 <!ELEMENT library            EMPTY>
 <!ATTLIST library            name    CDATA   #REQUIRED>
 <!ATTLIST library            lm      CDATA   #REQUIRED>
