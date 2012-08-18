@@ -8,6 +8,7 @@
 <!ELEMENT library-list-svr4  (library)*>
 <!ATTLIST library-list-svr4  version CDATA   #FIXED  "1.0">
 <!ATTLIST library-list-svr4  main-lm CDATA   #IMPLIED>
+<!ATTLIST library-list-svr4  debug-base CDATA #IMPLIED>
 
 <!ELEMENT library            EMPTY>
 <!ATTLIST library            name    CDATA   #REQUIRED>
