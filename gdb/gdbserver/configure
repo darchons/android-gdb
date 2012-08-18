@@ -598,6 +598,7 @@ USE_THREAD_DB
 GDBSERVER_LIBS
 GDBSERVER_DEPFILES
 RDYNAMIC
+thread_db_inc
 REPORT_BUGS_TEXI
 REPORT_BUGS_TO
 PKGVERSION
@@ -679,6 +680,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_maintainer_mode
+with_sysroot
 with_ust
 with_ust_include
 with_ust_lib
@@ -1324,6 +1326,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-sysroot=SYSROOT  use sysroot as the system root during the build
   --with-ust=PATH       Specify prefix directory for the installed UST package
                           Equivalent to --with-ust-include=PATH/include
                           plus --with-ust-lib=PATH/lib
@@ -2249,6 +2252,15 @@ fi
 
   MAINT=$MAINTAINER_MODE_TRUE
 
+
+
+
+# Check whether --with-sysroot was given.
+if test "${with_sysroot+set}" = set; then :
+  withval=$with_sysroot; if test x"$withval" != x ; then
+     CFLAGS="$CFLAGS --sysroot=$withval"
+   fi
+fi
 
 
 ac_ext=c
@@ -5196,8 +5208,14 @@ $as_echo "$gdbserver_cv_have_thread_db_type_psaddr_t" >&6; }
 
 fi
 
-old_LIBS="$LIBS"
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for dlopen in -ldl" >&5
+case "$target" in
+*android*)
+    srv_android_thread_db="yes"
+    thread_db_inc="-I$srcdir/../../android -fno-short-enums"
+    ;;
+*)
+            old_LIBS="$LIBS"
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dlopen in -ldl" >&5
 $as_echo_n "checking for dlopen in -ldl... " >&6; }
 if test "${ac_cv_lib_dl_dlopen+set}" = set; then :
   $as_echo_n "(cached) " >&6
@@ -5242,7 +5260,10 @@ _ACEOF
 
 fi
 
-LIBS="$old_LIBS"
+    LIBS="$old_LIBS"
+    ;;
+esac
+
 
 srv_thread_depfiles=
 srv_libs=
@@ -5301,11 +5322,15 @@ rm -f core conftest.err conftest.$ac_objext \
     LDFLAGS="$old_LDFLAGS"
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: $found" >&5
 $as_echo "$found" >&6; }
-  else
+  elif test "$srv_android_thread_db" != "yes"; then
     srv_libs="-lthread_db"
   fi
 
   srv_thread_depfiles="thread-db.o proc-service.o"
+  if test "$srv_android_thread_db" = "yes"; then
+    srv_thread_depfiles="$srv_thread_depfiles libthread_db.o"
+  fi
+
   USE_THREAD_DB="-DUSE_THREAD_DB"
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for TD_VERSION" >&5
 $as_echo_n "checking for TD_VERSION... " >&6; }
@@ -5348,7 +5373,7 @@ if test "${with_libthread_db+set}" = set; then :
 fi
 
 
-if test "$srv_libs" != "" -a "$srv_libs" != "-ldl"; then
+if test "$srv_libs" != "" -a "$srv_libs" != "-ldl" -o "$srv_android_thread_db" = "yes"; then
 
 $as_echo "#define USE_LIBTHREAD_DB_DIRECTLY 1" >>confdefs.h
 

@@ -209,6 +209,18 @@ lm_addr_check (struct so_list *so, bfd *abfd)
 
       dynaddr = bfd_section_vma (abfd, dyninfo_sect);
 
+#ifdef TARGET_ARM_LINUX
+      /* Workaround Android 4.1 linker bug that
+         gives gdb an incorrect linker base address */
+      if (! l_addr && ! l_dynaddr &&
+        strcmp (so->so_original_name, "/system/bin/linker") == 0 &&
+        target_auxv_search (&current_target, AT_BASE, &l_addr) > 0)
+	{
+	  so->lm_info->l_ld = l_addr + dynaddr;
+	  goto set_addr;
+	}
+#endif
+
       if (dynaddr + l_addr != l_dynaddr)
 	{
 	  CORE_ADDR align = 0x1000;
@@ -1466,10 +1478,16 @@ enable_break (struct svr4_info *info, int from_tty)
     {
       struct obj_section *os;
 
+#ifndef TARGET_ARM_LINUX
       sym_addr = gdbarch_addr_bits_remove
 	(target_gdbarch, gdbarch_convert_from_func_ptr_addr (target_gdbarch,
 							     sym_addr,
 							     &current_target));
+#else
+      sym_addr = gdbarch_convert_from_func_ptr_addr (target_gdbarch,
+						     sym_addr,
+						     &current_target);
+#endif
 
       /* On at least some versions of Solaris there's a dynamic relocation
 	 on _r_debug.r_brk and SYM_ADDR may not be relocated yet, e.g., if
