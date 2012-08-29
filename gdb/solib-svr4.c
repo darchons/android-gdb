@@ -1460,6 +1460,7 @@ enable_break (struct svr4_info *info, int from_tty)
   asection *interp_sect;
   gdb_byte *interp_name;
   CORE_ADDR sym_addr;
+  CORE_ADDR svr4_sym_addr = 0;
 
   info->interp_text_sect_low = info->interp_text_sect_high = 0;
   info->interp_plt_sect_low = info->interp_plt_sect_high = 0;
@@ -1542,6 +1543,16 @@ enable_break (struct svr4_info *info, int from_tty)
 	  create_solib_event_breakpoint (target_gdbarch, sym_addr);
 	  return 1;
 	}
+      else
+	{
+	  /* We gave up above, because we couldn't locate sym_addr in any
+	     obj_section. This can happen on Android (JB and earlier)
+	     if /system/bin/linker errantly reports its own base address
+	     as 0.  Regardless, the value retrieved from r_debug->r_brk
+	     is quite often correct, so let's preserve it for possible
+	     use farther down. */
+	  svr4_sym_addr = sym_addr;
+	}
     }
 
   /* Find the program interpreter; if not found, warn the user and drop
@@ -1593,6 +1604,15 @@ enable_break (struct svr4_info *info, int from_tty)
 	      break;
 	    }
 	  so = so->next;
+	}
+
+      if (load_addr_found && !load_addr)
+	{
+	  /* On at least some revisions of Android (ICS and JB,) the
+	     code above decides that the load_addr of /system/bin/linker
+	     is zero.  Here we check for that outcome, and continue on
+	     with the AT_BASE method if necessary. */
+	  load_addr_found = 0;
 	}
 
       /* If we were not able to find the base address of the loader
@@ -1687,6 +1707,15 @@ enable_break (struct svr4_info *info, int from_tty)
 	sym_addr = gdbarch_convert_from_func_ptr_addr (target_gdbarch,
 						       sym_addr,
 						       tmp_bfd_target);
+
+      /* We might have gotten to this point because the runtime linker
+         on Android (JB and earlier) neither correctly reports its base
+         address, nor exports an 'rtld_db_dlactivity' symbol.  However,
+         we might have gotten a valid value from r_debug->r_brk, earlier. */
+      if (svr4_sym_addr && load_addr_found && !sym_addr)
+	{
+	  sym_addr = svr4_sym_addr - load_addr;
+	}
 
       /* We're done with both the temporary bfd and target.  Remember,
          closing the target closes the underlying bfd.  */
