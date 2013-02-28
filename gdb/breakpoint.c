@@ -4467,7 +4467,8 @@ bpstat_what (bpstat bs_head)
   /* These operations may affect the bs->breakpoint_at state so they are
      delayed after MAIN_ACTION is decided above.  */
 
-  if (shlib_event && !stop_on_solib_events && current_target.to_shortname &&
+  if (shlib_event && delay_add_remote_solibs && !stop_on_solib_events &&
+	  current_target.to_shortname &&
 	  !strcmp (current_target.to_shortname, "remote"))
     {
 	  /* Delay adding solibs */
