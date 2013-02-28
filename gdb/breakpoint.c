@@ -5308,7 +5308,8 @@ handle_solib_event (void)
 {
   clear_program_space_solib_cache (current_inferior ()->pspace);
 
-  if (!stop_on_solib_events && current_target.to_shortname &&
+  if (delay_add_remote_solibs && !stop_on_solib_events &&
+	  current_target.to_shortname &&
 	  !strcmp (current_target.to_shortname, "remote"))
     {
 	  /* Delay adding solibs */
