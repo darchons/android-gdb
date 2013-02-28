@@ -208,6 +208,8 @@ extern int debug_infrun;
 
 extern int stop_on_solib_events;
 
+extern int delay_add_remote_solibs;
+
 extern int add_solibs_on_stop;
 
 extern void start_remote (int from_tty);
