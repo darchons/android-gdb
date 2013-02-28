@@ -315,6 +315,16 @@ show_stop_on_solib_events (struct ui_file *file, int from_tty,
 		    value);
 }
 
+/* Nonzero if we want to delay adding solibs for remote target */
+int delay_add_remote_solibs;
+static void
+show_delay_add_remote_solibs (struct ui_file *file, int from_tty,
+			      struct cmd_list_element *c, const char *value)
+{
+  fprintf_filtered (file, _("Delaying adding remote solibs is %s.\n"),
+		    value);
+}
+
 /* Nonzero if we delay adding solibs */
 int add_solibs_on_stop;
 
@@ -6993,6 +7003,17 @@ notifies gdb of shared library events.  The most common event of interest\n\
 to the user would be loading/unloading of a new library."),
 			    NULL,
 			    show_stop_on_solib_events,
+			    &setlist, &showlist);
+
+  add_setshow_zinteger_cmd ("delay-add-remote-solibs", class_support,
+			    &delay_add_remote_solibs, _("\
+Set delaying adding remote solibs."), _("\
+Show delaying adding remote solibs."), _("\
+If nonzero, gdb will delay adding shared libraries during shared library\n\
+events, when using a remote target.  This will decrease overhead, but\n\
+shared libraries will only be added after stopping manually."),
+			    NULL,
+			    show_delay_add_remote_solibs,
 			    &setlist, &showlist);
 
   add_solibs_on_stop = 0;
