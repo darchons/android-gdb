@@ -5360,6 +5360,8 @@ arm_adjust_breakpoint_address (struct gdbarch *gdbarch, CORE_ADDR bpaddr)
   if (!arm_pc_is_thumb (gdbarch, bpaddr))
     return bpaddr;
 
+  bpaddr = gdbarch_addr_bits_remove (gdbarch, bpaddr);
+
   /* We are setting a breakpoint in Thumb code that could potentially
      contain an IT block.  The first step is to find how much Thumb
      code there is; we do not need to read outside of known Thumb
@@ -5368,8 +5370,6 @@ arm_adjust_breakpoint_address (struct gdbarch *gdbarch, CORE_ADDR bpaddr)
   if (map_type == 0)
     /* Thumb-2 code must have mapping symbols to have a chance.  */
     return bpaddr;
-
-  bpaddr = gdbarch_addr_bits_remove (gdbarch, bpaddr);
 
   if (find_pc_partial_function (bpaddr, NULL, &func_start, NULL)
       && func_start > boundary)
