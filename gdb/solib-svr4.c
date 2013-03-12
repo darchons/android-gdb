@@ -823,6 +823,21 @@ solib_svr4_r_brk (struct svr4_info *info)
 				    ptr_type);
 }
 
+/* Find r_state from the inferior's debug base.  */
+
+static enum {
+    RT_CONSISTENT,
+    RT_ADD,
+    RT_DELETE }
+solib_svr4_r_state (struct svr4_info *info)
+{
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
+  enum bfd_endian byte_order = gdbarch_byte_order (target_gdbarch);
+
+  return (int) read_memory_unsigned_integer (info->debug_base + lmo->r_state_offset,
+				    lmo->r_version_size, byte_order);
+}
+
 /* Find the link map for the dynamic linker (if it is not in the
    normal list of loaded shared objects).  */
 
@@ -1272,6 +1287,18 @@ svr4_current_sos (void)
   int ignore_first;
   struct svr4_library_list library_list;
 
+  info = get_svr4_info ();
+
+  if (info->debug_base)
+    {
+      int r_state = (int) solib_svr4_r_state(info);
+      if (r_state == RT_ADD || r_state == RT_DELETE)
+	{
+	  /* Skip returning list if list is not consistent */
+	  return NULL;
+	}
+    }
+
   /* Fall back to manual examination of the target if the packet is not
      supported or gdbserver failed to find DT_DEBUG.  gdb.server/solib-list.exp
      tests a case where gdbserver cannot find the shared libraries list while
@@ -1290,8 +1317,6 @@ svr4_current_sos (void)
 
       return library_list.head ? library_list.head : svr4_default_sos ();
     }
-
-  info = get_svr4_info ();
 
   /* Always locate the debug struct, in case it has moved.  */
   info->debug_base = 0;
@@ -2445,6 +2470,7 @@ svr4_ilp32_fetch_link_map_offsets (void)
       lmo.r_version_size = 4;
       lmo.r_map_offset = 4;
       lmo.r_brk_offset = 8;
+      lmo.r_state_offset = 12;
       lmo.r_ldsomap_offset = 20;
 
       /* Everything we need is in the first 20 bytes.  */
@@ -2476,6 +2502,7 @@ svr4_lp64_fetch_link_map_offsets (void)
       lmo.r_version_size = 4;
       lmo.r_map_offset = 8;
       lmo.r_brk_offset = 16;
+      lmo.r_state_offset = 24;
       lmo.r_ldsomap_offset = 40;
 
       /* Everything we need is in the first 40 bytes.  */
