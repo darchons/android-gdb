@@ -35,7 +35,9 @@
 /* Fields in e_ident[].  */
 
 #define EI_MAG0		0	/* File identification byte 0 index */
+#ifndef ELFMAG0
 #define ELFMAG0		   0x7F	/* Magic number byte 0 */
+#endif
 
 #define EI_MAG1		1	/* File identification byte 1 index */
 #define ELFMAG1		    'E'	/* Magic number byte 1 */
@@ -82,7 +84,9 @@
 
 #define EI_ABIVERSION	8	/* ABI version */
 
+#ifndef EI_PAD
 #define EI_PAD		9	/* Start of padding bytes */
+#endif
 
 
 /* Values for e_type, which identifies the object file type.  */
@@ -94,8 +98,12 @@
 #define ET_CORE		4	/* Core file */
 #define ET_LOOS		0xFE00	/* Operating system-specific */
 #define ET_HIOS		0xFEFF	/* Operating system-specific */
+#ifndef ET_LOPROC
 #define ET_LOPROC	0xFF00	/* Processor-specific */
+#endif
+#ifndef ET_HIPROC
 #define ET_HIPROC	0xFFFF	/* Processor-specific */
+#endif
 
 /* Values for e_machine, which identifies the architecture.  These numbers
    are officially assigned by registry@sco.com.  See below for a list of
@@ -373,7 +381,9 @@
 #define EM_CYGNUS_V850		0x9080
 
 /* old S/390 backend magic number. Written in the absence of an ABI.  */
+#ifndef EM_S390_OLD
 #define EM_S390_OLD		0xa390
+#endif
 
 /* Old, unofficial value for Xtensa.  */
 #define EM_XTENSA_OLD		0xabc7
@@ -428,18 +438,28 @@
 #define PT_LOOS		0x60000000	/* OS-specific */
 #define PT_HIOS		0x6fffffff	/* OS-specific */
 #define PT_LOPROC	0x70000000	/* Processor-specific */
+#ifndef PT_HIPROC
 #define PT_HIPROC	0x7FFFFFFF	/* Processor-specific */
+#endif
 
+#ifndef PT_GNU_EH_FRAME
 #define PT_GNU_EH_FRAME	(PT_LOOS + 0x474e550) /* Frame unwind information */
+#endif
 #define PT_SUNW_EH_FRAME PT_GNU_EH_FRAME      /* Solaris uses the same value */
 #define PT_GNU_STACK	(PT_LOOS + 0x474e551) /* Stack flags */
 #define PT_GNU_RELRO	(PT_LOOS + 0x474e552) /* Read-only after relocation */
 
 /* Program segment permissions, in program header p_flags field.  */
 
+#ifndef PF_X
 #define PF_X		(1 << 0)	/* Segment is executable */
+#endif
+#ifndef PF_W
 #define PF_W		(1 << 1)	/* Segment is writable */
+#endif
+#ifndef PF_R
 #define PF_R		(1 << 2)	/* Segment is readable */
+#endif
 /* #define PF_MASKOS	0x0F000000    *//* OS-specific reserved bits */
 #define PF_MASKOS	0x0FF00000	/* New value, Oct 4, 1999 Draft */
 #define PF_MASKPROC	0xF0000000	/* Processor-specific reserved bits */
@@ -485,16 +505,26 @@
 #define SHT_GNU_versym	SHT_SUNW_versym
 
 #define SHT_LOPROC	0x70000000	/* Processor-specific semantics, lo */
+#ifndef SHT_HIPROC
 #define SHT_HIPROC	0x7FFFFFFF	/* Processor-specific semantics, hi */
+#endif
 #define SHT_LOUSER	0x80000000	/* Application-specific semantics */
 /* #define SHT_HIUSER	0x8FFFFFFF    *//* Application-specific semantics */
+#ifndef SHT_HIUSER
 #define SHT_HIUSER	0xFFFFFFFF	/* New value, defined in Oct 4, 1999 Draft */
+#endif
 
 /* Values for section header, sh_flags field.  */
 
+#ifndef SHF_WRITE
 #define SHF_WRITE	(1 << 0)	/* Writable data during execution */
+#endif
+#ifndef SHF_ALLOC
 #define SHF_ALLOC	(1 << 1)	/* Occupies memory during execution */
+#endif
+#ifndef SHF_EXECINSTR
 #define SHF_EXECINSTR	(1 << 2)	/* Executable machine instructions */
+#endif
 #define SHF_MERGE	(1 << 4)	/* Data in this section can be merged */
 #define SHF_STRINGS	(1 << 5)	/* Contains null terminated character strings */
 #define SHF_INFO_LINK	(1 << 6)	/* sh_info holds section header table index */
@@ -505,7 +535,9 @@
 
 /* #define SHF_MASKOS	0x0F000000    *//* OS-specific semantics */
 #define SHF_MASKOS	0x0FF00000	/* New value, Oct 4, 1999 Draft */
+#ifndef SHF_MASKPROC
 #define SHF_MASKPROC	0xF0000000	/* Processor-specific semantics */
+#endif
 
 /* This used to be implemented as a processor specific section flag.
    We just make it generic.  */
@@ -620,17 +652,29 @@
    which contains the symbol binding and symbol type.  The STB_ and STT_
    defines identify the binding and type.  */
 
+#ifndef ELF_ST_BIND
 #define ELF_ST_BIND(val)		(((unsigned int)(val)) >> 4)
+#endif
+#ifndef ELF_ST_TYPE
 #define ELF_ST_TYPE(val)		((val) & 0xF)
+#endif
 #define ELF_ST_INFO(bind,type)		(((bind) << 4) + ((type) & 0xF))
 
 /* The 64bit and 32bit versions of these macros are identical, but
    the ELF spec defines them, so here they are.  */
+#ifndef ELF32_ST_BIND
 #define ELF32_ST_BIND  ELF_ST_BIND
+#endif
+#ifndef ELF32_ST_TYPE
 #define ELF32_ST_TYPE  ELF_ST_TYPE
+#endif
 #define ELF32_ST_INFO  ELF_ST_INFO
+#ifndef ELF64_ST_BIND
 #define ELF64_ST_BIND  ELF_ST_BIND
+#endif
+#ifndef ELF64_ST_TYPE
 #define ELF64_ST_TYPE  ELF_ST_TYPE
+#endif
 #define ELF64_ST_INFO  ELF_ST_INFO
 
 /* This macro disassembles and assembles a symbol's visibility into
@@ -680,8 +724,12 @@
 
 /* Relocation info handling macros.  */
 
+#ifndef ELF32_R_SYM
 #define ELF32_R_SYM(i)		((i) >> 8)
+#endif
+#ifndef ELF32_R_TYPE
 #define ELF32_R_TYPE(i)		((i) & 0xff)
+#endif
 #define ELF32_R_INFO(s,t)	(((s) << 8) + ((t) & 0xff))
 
 #define ELF64_R_SYM(i)		((i) >> 32)

@@ -1352,6 +1352,17 @@ input_from_terminal_p (void)
 
   return 0;
 }
+
+/* This function is *here* because it is used in breakpoint.c  */
+
+int
+is_target_linux_android ()
+{
+  if (strstr (target_name, "android") != NULL
+      && strstr (target_name, "linux") != NULL)
+    return 1;
+  return 0;
+}
 
 static void
 dont_repeat_command (char *ignored, int from_tty)

@@ -106,7 +106,7 @@ static const char arm_linux_thumb2_le_breakpoint[] = { 0xf0, 0xf7, 0x00, 0xa0 };
 #define ARM_LINUX_JB_ELEMENT_SIZE	INT_REGISTER_SIZE
 #define ARM_LINUX_JB_PC_FPA		21
 #define ARM_LINUX_JB_PC_EABI		9
-#define ARM_LINUX_JB_PC_ANDROID		29
+#define ARM_ANDROID_JB_PC		24
 
 /*
    Dynamic Linking on ARM GNU/Linux
@@ -1276,12 +1276,6 @@ arm_linux_init_abi (struct gdbarch_info info,
   if (tdep->fp_model == ARM_FLOAT_AUTO)
     tdep->fp_model = ARM_FLOAT_FPA;
 
-#ifdef TARGET_ARM_LINUX
-  /* FIXME: HACK.  We need some runtime test for whether we're running an
-     android program.  Having an android indicator in .note.ABI-tag is
-     one possible way.  */
-  tdep->jb_pc = ARM_LINUX_JB_PC_ANDROID;
-#else
   switch (tdep->fp_model)
     {
     case ARM_FLOAT_FPA:
@@ -1298,7 +1292,10 @@ arm_linux_init_abi (struct gdbarch_info info,
          _("arm_linux_init_abi: Floating point model not supported"));
       break;
     }
-#endif
+
+  if (is_target_linux_android ())
+      tdep->jb_pc = ARM_ANDROID_JB_PC;
+
   tdep->jb_elt_size = ARM_LINUX_JB_ELEMENT_SIZE;
 
   set_solib_svr4_fetch_link_map_offsets
@@ -1315,16 +1312,15 @@ arm_linux_init_abi (struct gdbarch_info info,
   set_gdbarch_fetch_tls_load_module_address (gdbarch,
                                              svr4_fetch_objfile_link_map);
 
-  /* FIXME: HACK.  We need some runtime test for whether we're running an
-     android program.  Having an android indicator in .note.ABI-tag is
-     one possible way.  */
-#ifdef __ANDROID__
-  /* This is incomplete, we can't singlestep through the handler back to
-     the interrupted code, address 0xffff0500 is inaccessible.
-     This is really a temp hack until there's libc additions to put the
-     trampoline code in user space.  */
-  frame_unwind_prepend_unwinder (gdbarch, &arm_android_sigreturn_tramp_frame);
-#else
+  if (is_target_linux_android ())
+    /* This is incomplete, we can't singlestep through the handler back to
+       the interrupted code, address 0xffff0500 is inaccessible.
+       This is really a temp hack until there's libc additions to put the
+       trampoline code in user space.  */
+    frame_unwind_prepend_unwinder (gdbarch,
+				   &arm_android_sigreturn_tramp_frame);
+  else
+  { /* This indentation is on purpose to minimize whitespace changes.  */
   tramp_frame_prepend_unwinder (gdbarch,
 				&arm_linux_sigreturn_tramp_frame);
   tramp_frame_prepend_unwinder (gdbarch,
@@ -1337,7 +1333,7 @@ arm_linux_init_abi (struct gdbarch_info info,
 				&arm_linux_restart_syscall_tramp_frame);
   tramp_frame_prepend_unwinder (gdbarch,
 				&arm_kernel_linux_restart_syscall_tramp_frame);
-#endif
+  }
 
   /* Core file support.  */
   set_gdbarch_regset_from_core_section (gdbarch,

@@ -95,11 +95,13 @@ pid_t old_foreground_pgrp;
 
 /* Hand back terminal ownership to the original foreground group.  */
 
+#ifndef __ANDROID__
 static void
 restore_old_foreground_pgrp (void)
 {
   tcsetpgrp (terminal_fd, old_foreground_pgrp);
 }
+#endif
 #endif
 
 /* Set if you want to disable optional thread related packets support
@@ -290,10 +292,12 @@ start_inferior (char **argv)
 #ifdef SIGTTOU
   signal (SIGTTOU, SIG_IGN);
   signal (SIGTTIN, SIG_IGN);
+#ifndef __ANDROID__
   terminal_fd = fileno (stderr);
   old_foreground_pgrp = tcgetpgrp (terminal_fd);
   tcsetpgrp (terminal_fd, signal_pid);
   atexit (restore_old_foreground_pgrp);
+#endif
 #endif
 
   if (wrapper_argv != NULL)

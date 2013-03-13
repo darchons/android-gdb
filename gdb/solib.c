@@ -675,6 +675,12 @@ update_solib_list (int from_tty, struct target_ops *target)
   struct so_list *inferior = ops->current_sos();
   struct so_list *gdb, **gdb_link;
 
+  if (! inferior)
+    {
+      /* No solib list available at the moment */
+      return;
+    }
+
   /* We can reach here due to changing solib-search-path or the
      sysroot, before having any inferior.  */
   if (target_has_execution && !ptid_equal (inferior_ptid, null_ptid))
