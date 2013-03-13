@@ -16238,11 +16238,11 @@ hardware.)"),
 			    show_can_use_hw_watchpoints,
 			    &setlist, &showlist);
 
-#ifdef TARGET_ARM_LINUX
-  can_use_hw_watchpoints = 0;
-#else
   can_use_hw_watchpoints = 1;
-#endif
+
+  /* For android, until h/w watchpoints are supported.  */
+  if (is_target_linux_android ())
+    can_use_hw_watchpoints = 0;
 
   /* Tracepoint manipulation commands.  */
 

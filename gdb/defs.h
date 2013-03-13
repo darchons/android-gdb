@@ -582,6 +582,9 @@ extern int input_from_terminal_p (void);
 
 extern int info_verbose;
 
+/* Test to see if target is Android  */
+extern int is_target_linux_android (void);
+
 /* From printcmd.c */
 
 extern void set_next_address (struct gdbarch *, CORE_ADDR);

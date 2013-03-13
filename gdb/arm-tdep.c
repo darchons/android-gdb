@@ -1562,7 +1562,7 @@ arm_skip_prologue (struct gdbarch *gdbarch, CORE_ADDR pc)
 	post_prologue_pc
 	  = arm_skip_stack_protector (post_prologue_pc, gdbarch);
 
-      if (post_prologue_pc)
+      if (post_prologue_pc && is_target_linux_android ())
         {
           /* GCC 4.4.0 will move the setting of the pic register into the
              middle of the prologue using line numbers from the original
