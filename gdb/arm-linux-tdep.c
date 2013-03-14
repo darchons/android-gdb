@@ -517,6 +517,7 @@ arm_android_sigreturn_frame_sniffer (const struct frame_unwind *self,
 
 static struct frame_unwind arm_android_sigreturn_tramp_frame = {
   SIGTRAMP_FRAME,
+  default_frame_unwind_stop_reason,
   arm_android_sigreturn_frame_this_id,
   arm_android_sigreturn_frame_prev_register,
   NULL,
