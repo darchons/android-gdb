@@ -431,6 +431,14 @@ arm_pc_is_thumb (struct gdbarch *gdbarch, CORE_ADDR memaddr)
   if (strcmp (arm_fallback_mode_string, "thumb") == 0)
     return 1;
 
+  /* If we are at the entry point, we can try checking the entry address */
+  {
+    CORE_ADDR ep;
+    if (symfile_objfile && symfile_objfile->ei.entry_point_p &&
+	entry_point_address_query (&ep) && memaddr == ep)
+      return IS_THUMB_ADDR (symfile_objfile->ei.entry_point);
+  }
+
   /* If we couldn't find any symbol, but we're talking to a running
      target, then trust the current value of $cpsr.  This lets
      "display/i $pc" always show the correct mode (though if there is

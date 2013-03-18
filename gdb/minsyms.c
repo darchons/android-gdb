@@ -160,6 +160,16 @@ msymbol_objfile (struct minimal_symbol *sym)
 }
 
 
+static int
+str_ends_with (const char *str, const char *tok)
+{
+  size_t len = strlen(str);
+  size_t toklen = strlen(tok);
+  if (len < toklen)
+    return 0;
+  return !strcmp(str + len - toklen, tok);
+}
+
 /* Look through all the current minimal symbol tables and find the
    first minimal symbol that matches NAME.  If OBJF is non-NULL, limit
    the search to that objfile.  If SFILE is non-NULL, the only file-scope
@@ -219,10 +229,18 @@ lookup_minimal_symbol (const char *name, const char *sfile,
       if (objf == NULL || objf == objfile
 	  || objf == objfile->separate_debug_objfile_backlink)
 	{
-	  /* Do two passes: the first over the ordinary hash table,
-	     and the second over the demangled hash table.  */
         int pass;
 
+	  if (is_target_linux_android() &&
+	      (! strcmp(objfile->name, "linker") ||
+	      str_ends_with(objfile->name, SLASH_STRING "linker")) &&
+	      (! strcmp(name, "malloc") || ! strcmp(name, "free") ||
+	      ! strcmp(name, "realloc") || ! strcmp(name, "calloc")))
+	    /* Thanks Bionic! */
+	    continue;
+
+	  /* Do two passes: the first over the ordinary hash table,
+	     and the second over the demangled hash table.  */
         for (pass = 1; pass <= 2 && found_symbol == NULL; pass++)
 	    {
             /* Select hash list according to pass.  */
