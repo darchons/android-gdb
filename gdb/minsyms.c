@@ -229,6 +229,8 @@ lookup_minimal_symbol (const char *name, const char *sfile,
       if (objf == NULL || objf == objfile
 	  || objf == objfile->separate_debug_objfile_backlink)
 	{
+        int pass;
+
 	  if (is_target_linux_android() &&
 	      (! strcmp(objfile->name, "linker") ||
 	      str_ends_with(objfile->name, SLASH_STRING "linker")) &&
@@ -239,8 +241,6 @@ lookup_minimal_symbol (const char *name, const char *sfile,
 
 	  /* Do two passes: the first over the ordinary hash table,
 	     and the second over the demangled hash table.  */
-        int pass;
-
         for (pass = 1; pass <= 2 && found_symbol == NULL; pass++)
 	    {
             /* Select hash list according to pass.  */

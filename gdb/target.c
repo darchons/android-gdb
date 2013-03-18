@@ -1212,7 +1212,8 @@ target_translate_tls_address (struct objfile *objfile, CORE_ADDR offset)
 #define MIN(A, B) (((A) <= (B)) ? (A) : (B))
 
 // strnlen is not available on OS X, so we roll our own
-size_t mystrnlen(const char *begin, size_t maxlen) {
+static size_t
+mystrnlen(const char *begin, size_t maxlen) {
   const char *end = memchr(begin, '\0', maxlen);
   return end ? (end - begin) : maxlen;
 }
