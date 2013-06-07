@@ -2336,6 +2336,9 @@ linux_wait_1 (ptid_t ptid,
   int maybe_internal_trap;
   int report_to_gdb;
   int trace_event;
+#ifdef __ANDROID__
+  void *last_sigsegv_addr = NULL;
+#endif /* __ANDROID__ */
 
   /* Translate generic target options into linux options.  */
   options = __WALL;
@@ -2600,6 +2603,29 @@ Check if we're already there.\n",
 
   /* Check whether GDB would be interested in this event.  */
 
+#ifdef __ANDROID__
+  if (WIFSTOPPED (w)
+    && WSTOPSIG (w) == SIGSEGV)
+    {
+      // Ignore SIGSEGV caused by on-demand decompression
+      siginfo_t info;
+      if (ptrace (PTRACE_GETSIGINFO, lwpid_of (event_child), 0, &info) == 0
+	&& info.si_code == SEGV_ACCERR
+	&& info.si_addr
+	&& info.si_addr != last_sigsegv_addr)
+	{
+	  if (debug_threads)
+	    fprintf (stderr, "ignored on-demand SIGSEGV at %p.\n",
+		     info.si_addr);
+	  last_sigsegv_addr = info.si_addr;
+	}
+      else
+	{
+	  last_sigsegv_addr = NULL;
+	}
+    }
+#endif /* __ANDROID__ */
+
   /* If GDB is not interested in this signal, don't stop other
      threads, and don't report it to GDB.  Just resume the inferior
      right away.  We do this for threading-related signals as well as
@@ -2616,6 +2642,10 @@ Check if we're already there.\n",
 	  (current_process ()->private->thread_db != NULL
 	   && (WSTOPSIG (w) == __SIGRTMIN
 	       || WSTOPSIG (w) == __SIGRTMIN + 1))
+	  ||
+#elif defined (__ANDROID__)
+	  (WSTOPSIG (w) == SIGSEGV
+	   && last_sigsegv_addr)
 	  ||
 #endif
 	  (pass_signals[gdb_signal_from_host (WSTOPSIG (w))]
