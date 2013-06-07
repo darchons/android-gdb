@@ -2392,6 +2392,7 @@ insert_bp_location (struct bp_location *bl,
      read the breakpoint instead of returning the data saved in
      the breakpoint location's shadow contents.  */
   bl->target_info.placed_address = bl->address;
+  bl->target_info.requested_address = bl->requested_address;
   bl->target_info.placed_address_space = bl->pspace->aspace;
   bl->target_info.length = bl->length;
 
