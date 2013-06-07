@@ -50,6 +50,8 @@ default_memory_insert_breakpoint (struct gdbarch *gdbarch,
   gdb_byte *readbuf;
 
   /* Determine appropriate breakpoint contents and size for this address.  */
+  if (bp_tgt->requested_address)
+    bp_tgt->placed_address = bp_tgt->requested_address;
   bp = gdbarch_breakpoint_from_pc
        (gdbarch, &bp_tgt->placed_address, &bp_tgt->placed_size);
   if (bp == NULL)
