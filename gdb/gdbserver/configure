@@ -586,9 +586,6 @@ ac_includes_default="\
 #endif
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-# include <sys/socket.h>
 #endif"
 
 ac_subst_vars='LTLIBOBJS
@@ -2262,6 +2259,8 @@ fi
 if test "${with_sysroot+set}" = set; then :
   withval=$with_sysroot; if test x"$withval" != x ; then
      CFLAGS="$CFLAGS --sysroot=$withval"
+     CPPFLAGS="$CPPFLAGS --sysroot=$withval"
+     LDFLAGS="$LDFLAGS --sysroot=$withval"
    fi
 fi
 

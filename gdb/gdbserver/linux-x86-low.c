@@ -91,9 +91,6 @@ static const char *xmltarget_amd64_linux_no_xml = "@<target>\
 #define PTRACE_ARCH_PRCTL      30
 #endif
 
-#define PTRACE_ARG3_TYPE       void*
-#define PTRACE_ARG4_TYPE       void*
-
 /* The following definitions come from prctl.h, but may be absent
    for certain configurations.  */
 #ifndef ARCH_GET_FS

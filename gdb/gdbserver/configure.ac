@@ -30,6 +30,8 @@ AC_ARG_WITH([sysroot],
                   [use sysroot as the system root during the build])],
   [if test x"$withval" != x ; then
      CFLAGS="$CFLAGS --sysroot=$withval"
+     CPPFLAGS="$CPPFLAGS --sysroot=$withval"
+     LDFLAGS="$LDFLAGS --sysroot=$withval"
    fi],
   [])
 

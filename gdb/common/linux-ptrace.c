@@ -54,7 +54,9 @@ linux_ptrace_attach_warnings (pid_t pid, struct buffer *buffer)
 /* Address of the 'ret' instruction in asm code block below.  */
 extern void (linux_ptrace_test_ret_to_nx_instr) (void);
 
+#ifndef __ANDROID__
 #include <sys/reg.h>
+#endif
 #include <sys/mman.h>
 #include <signal.h>
 #include <sys/wait.h>
