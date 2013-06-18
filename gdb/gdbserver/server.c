@@ -112,6 +112,10 @@ int disable_packet_Tthread;
 int disable_packet_qC;
 int disable_packet_qfThreadInfo;
 
+#ifdef __ANDROID__
+int ignore_ondemand = 1;
+#endif
+
 /* Last status reported to GDB.  */
 static struct target_waitstatus last_status;
 static ptid_t last_ptid;
@@ -655,6 +659,10 @@ monitor_show_help (void)
   monitor_output ("    Enable h/w breakpoint/watchpoint debugging messages\n");
   monitor_output ("  set remote-debug <0|1>\n");
   monitor_output ("    Enable remote protocol debugging messages\n");
+#ifdef __ANDROID__
+  monitor_output ("  set ignore-ondemand <0|1>\n");
+  monitor_output ("    Ignore on-demand decompression SIGSEGV\n");
+#endif
   monitor_output ("  exit\n");
   monitor_output ("    Quit GDBserver\n");
 }
@@ -916,6 +924,18 @@ handle_monitor_command (char *mon, char *own_buf)
       remote_debug = 0;
       monitor_output ("Protocol debug output disabled.\n");
     }
+#ifdef __ANDROID__
+  else if (strcmp (mon, "set ignore-ondemand 1") == 0)
+    {
+      ignore_ondemand = 1;
+      monitor_output ("Ignoring on-demand SIGSEGV.\n");
+    }
+  else if (strcmp (mon, "set ignore-ondemand 0") == 0)
+    {
+      ignore_ondemand = 0;
+      monitor_output ("Not ignoring on-demand SIGSEGV.\n");
+    }
+#endif
   else if (strcmp (mon, "help") == 0)
     monitor_show_help ();
   else if (strcmp (mon, "exit") == 0)

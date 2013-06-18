@@ -2609,7 +2609,8 @@ Check if we're already there.\n",
     {
       // Ignore SIGSEGV caused by on-demand decompression
       siginfo_t info;
-      if (ptrace (PTRACE_GETSIGINFO, lwpid_of (event_child), 0, &info) == 0
+      if (ignore_ondemand
+	&& ptrace (PTRACE_GETSIGINFO, lwpid_of (event_child), 0, &info) == 0
 	&& info.si_code == SEGV_ACCERR
 	&& info.si_addr
 	&& info.si_addr != last_sigsegv_addr)
