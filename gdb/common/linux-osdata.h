@@ -23,6 +23,7 @@
 #include "ptid.h"
 
 extern int linux_common_core_of_thread (ptid_t ptid);
+extern const char* linux_common_thread_name (ptid_t ptid);
 extern LONGEST linux_common_xfer_osdata (const char *annex, gdb_byte *readbuf,
 					 ULONGEST offset, LONGEST len);
 
