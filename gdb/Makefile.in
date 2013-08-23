@@ -1377,10 +1377,10 @@ $(srcdir)/copying.c: @MAINTAINER_MODE_TRUE@ $(srcdir)/../COPYING3 $(srcdir)/copy
 		< $(srcdir)/../COPYING3 > $(srcdir)/copying.tmp
 	mv $(srcdir)/copying.tmp $(srcdir)/copying.c
 
-version.c: Makefile version.in
+version.c: Makefile version.in ../.git/HEAD
 	rm -f version.c-tmp version.c
 	echo '#include "version.h"' >> version.c-tmp
-	echo 'const char version[] = "'"`sed q ${srcdir}/version.in`"'";' >> version.c-tmp
+	echo 'const char version[] = "'"`sed q ${srcdir}/version.in`""/`git --git-dir ${srcdir}/../.git rev-parse --short HEAD`"'";' >> version.c-tmp
 	echo 'const char host_name[] = "$(host_alias)";' >> version.c-tmp
 	echo 'const char target_name[] = "$(target_alias)";' >> version.c-tmp
 	mv version.c-tmp version.c
