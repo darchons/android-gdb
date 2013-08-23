@@ -117,6 +117,43 @@ linux_common_core_of_thread (ptid_t ptid)
   return core;
 }
 
+const char *
+linux_common_thread_name (ptid_t ptid)
+{
+  int pid = ptid_get_pid (ptid);
+  long lwp = ptid_get_lwp (ptid);
+#define FORMAT "/proc/%d/task/%ld/comm"
+  char buf[sizeof (FORMAT) + 30];
+  FILE *comm_file;
+  char *result = NULL;
+
+  snprintf (buf, sizeof (buf), FORMAT, pid, lwp);
+  comm_file = fopen (buf, "r");
+  if (comm_file)
+    {
+      /* Not exported by the kernel, so we define it here.  */
+#define COMM_LEN 16
+      static char line[COMM_LEN + 1];
+
+      if (fgets (line, sizeof (line), comm_file))
+	{
+	  char *nl = strchr (line, '\n');
+
+	  if (nl)
+	    *nl = '\0';
+	  if (*line != '\0')
+	    result = line;
+	}
+
+      fclose (comm_file);
+    }
+
+#undef COMM_LEN
+#undef FORMAT
+
+  return result;
+}
+
 /* Finds the command-line of process PID and copies it into COMMAND.
    At most MAXLEN characters are copied.  If the command-line cannot
    be found, PID is copied into command in text-form.  */

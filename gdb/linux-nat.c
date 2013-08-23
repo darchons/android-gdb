@@ -4258,38 +4258,7 @@ linux_nat_pid_to_str (struct target_ops *ops, ptid_t ptid)
 static char *
 linux_nat_thread_name (struct thread_info *thr)
 {
-  int pid = ptid_get_pid (thr->ptid);
-  long lwp = ptid_get_lwp (thr->ptid);
-#define FORMAT "/proc/%d/task/%ld/comm"
-  char buf[sizeof (FORMAT) + 30];
-  FILE *comm_file;
-  char *result = NULL;
-
-  snprintf (buf, sizeof (buf), FORMAT, pid, lwp);
-  comm_file = fopen (buf, "r");
-  if (comm_file)
-    {
-      /* Not exported by the kernel, so we define it here.  */
-#define COMM_LEN 16
-      static char line[COMM_LEN + 1];
-
-      if (fgets (line, sizeof (line), comm_file))
-	{
-	  char *nl = strchr (line, '\n');
-
-	  if (nl)
-	    *nl = '\0';
-	  if (*line != '\0')
-	    result = line;
-	}
-
-      fclose (comm_file);
-    }
-
-#undef COMM_LEN
-#undef FORMAT
-
-  return result;
+  return (char *) linux_common_thread_name(thr->ptid);
 }
 
 /* Accepts an integer PID; Returns a string representing a file that

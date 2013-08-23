@@ -5901,6 +5901,7 @@ static struct target_ops linux_target_ops = {
   NULL,
 #endif
   linux_common_core_of_thread,
+  linux_common_thread_name, /* thread_extra */
   linux_read_loadmap,
   linux_process_qsupported,
   linux_supports_tracepoints,

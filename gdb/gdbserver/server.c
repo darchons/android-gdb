@@ -1186,20 +1186,26 @@ handle_qxfer_threads_proper (struct buffer *buffer)
       char ptid_s[100];
       int core = target_core_of_thread (ptid);
       char core_s[21];
+      const char *extra = target_thread_extra (ptid);
 
       write_ptid (ptid_s, ptid);
 
       if (core != -1)
 	{
 	  sprintf (core_s, "%d", core);
-	  buffer_xml_printf (buffer, "<thread id=\"%s\" core=\"%s\"/>\n",
+	  buffer_xml_printf (buffer, "<thread id=\"%s\" core=\"%s\">",
 			     ptid_s, core_s);
 	}
       else
 	{
-	  buffer_xml_printf (buffer, "<thread id=\"%s\"/>\n",
+	  buffer_xml_printf (buffer, "<thread id=\"%s\">",
 			     ptid_s);
 	}
+      if (extra)
+	{
+	  buffer_xml_printf (buffer, "%s", extra);
+	}
+      buffer_grow_str (buffer, "</thread>\n");
     }
 
   buffer_grow_str0 (buffer, "</threads>\n");

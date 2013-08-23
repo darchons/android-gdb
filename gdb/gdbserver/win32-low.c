@@ -1811,6 +1811,7 @@ static struct target_ops win32_target_ops = {
   NULL, /* supports_multi_process */
   NULL, /* handle_monitor_command */
   NULL, /* core_of_thread */
+  NULL, /* thread_extra */
   NULL, /* read_loadmap */
   NULL, /* process_qsupported */
   NULL, /* supports_tracepoints */
