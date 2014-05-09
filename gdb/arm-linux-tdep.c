@@ -31,6 +31,7 @@
 #include "regset.h"
 #include "trad-frame.h"
 #include "tramp-frame.h"
+#include "frame-unwind.h"
 #include "breakpoint.h"
 #include "auxv.h"
 
@@ -105,6 +106,7 @@ static const char arm_linux_thumb2_le_breakpoint[] = { 0xf0, 0xf7, 0x00, 0xa0 };
 #define ARM_LINUX_JB_ELEMENT_SIZE	INT_REGISTER_SIZE
 #define ARM_LINUX_JB_PC_FPA		21
 #define ARM_LINUX_JB_PC_EABI		9
+#define ARM_ANDROID_JB_PC		24
 
 /*
    Dynamic Linking on ARM GNU/Linux
@@ -462,6 +464,69 @@ static struct tramp_frame arm_kernel_linux_restart_syscall_tramp_frame = {
     { TRAMP_SENTINEL_INSN }
   },
   arm_linux_restart_syscall_init
+};
+
+static void
+arm_android_sigreturn_init (struct frame_info *this_frame,
+                            struct trad_frame_cache *this_cache,
+                            CORE_ADDR func)
+{
+  struct gdbarch *gdbarch = get_frame_arch (this_frame);
+  enum bfd_endian byte_order = gdbarch_byte_order (gdbarch);
+  CORE_ADDR sp = get_frame_register_unsigned (this_frame, ARM_SP_REGNUM);
+  ULONGEST uc_flags = read_memory_unsigned_integer (sp, 4, byte_order);
+
+  if (uc_flags == ARM_NEW_SIGFRAME_MAGIC)
+    arm_linux_sigtramp_cache (this_frame, this_cache, func,
+                              ARM_UCONTEXT_SIGCONTEXT
+                              + ARM_SIGCONTEXT_R0);
+  else
+    arm_linux_sigtramp_cache (this_frame, this_cache, func,
+                              ARM_SIGCONTEXT_R0);
+}
+
+static void
+arm_android_sigreturn_frame_this_id (struct frame_info *this_frame,
+                                     void **this_cache,
+                                     struct frame_id *this_id)
+{
+  struct trad_frame_cache *trad_cache = *this_cache;
+  trad_frame_get_id (trad_cache, this_id);
+}
+
+static struct value *
+arm_android_sigreturn_frame_prev_register (struct frame_info *this_frame,
+                                           void **this_cache,
+                                           int prev_regnum)
+{
+  struct trad_frame_cache *trad_cache = *this_cache;
+  return trad_frame_get_register (trad_cache, this_frame, prev_regnum);
+}
+
+static int
+arm_android_sigreturn_frame_sniffer (const struct frame_unwind *self,
+                                     struct frame_info *this_frame,
+                                     void **this_cache)
+{
+  CORE_ADDR pc = get_frame_pc (this_frame);
+  struct trad_frame_cache *trad_cache;
+
+  if (pc != 0xffff0500)
+    return 0;
+
+  trad_cache = trad_frame_cache_zalloc (this_frame);
+  arm_android_sigreturn_init (this_frame, trad_cache, pc);
+  (*this_cache) = trad_cache;
+  return 1;
+}
+
+static struct frame_unwind arm_android_sigreturn_tramp_frame = {
+  SIGTRAMP_FRAME,
+  default_frame_unwind_stop_reason,
+  arm_android_sigreturn_frame_this_id,
+  arm_android_sigreturn_frame_prev_register,
+  NULL,
+  arm_android_sigreturn_frame_sniffer
 };
 
 /* Core file and register set support.  */
@@ -1228,6 +1293,10 @@ arm_linux_init_abi (struct gdbarch_info info,
          _("arm_linux_init_abi: Floating point model not supported"));
       break;
     }
+
+  if (is_target_linux_android ())
+      tdep->jb_pc = ARM_ANDROID_JB_PC;
+
   tdep->jb_elt_size = ARM_LINUX_JB_ELEMENT_SIZE;
 
   set_solib_svr4_fetch_link_map_offsets
@@ -1244,6 +1313,15 @@ arm_linux_init_abi (struct gdbarch_info info,
   set_gdbarch_fetch_tls_load_module_address (gdbarch,
                                              svr4_fetch_objfile_link_map);
 
+  if (is_target_linux_android ())
+    /* This is incomplete, we can't singlestep through the handler back to
+       the interrupted code, address 0xffff0500 is inaccessible.
+       This is really a temp hack until there's libc additions to put the
+       trampoline code in user space.  */
+    frame_unwind_prepend_unwinder (gdbarch,
+				   &arm_android_sigreturn_tramp_frame);
+  else
+  { /* This indentation is on purpose to minimize whitespace changes.  */
   tramp_frame_prepend_unwinder (gdbarch,
 				&arm_linux_sigreturn_tramp_frame);
   tramp_frame_prepend_unwinder (gdbarch,
@@ -1256,6 +1334,7 @@ arm_linux_init_abi (struct gdbarch_info info,
 				&arm_linux_restart_syscall_tramp_frame);
   tramp_frame_prepend_unwinder (gdbarch,
 				&arm_kernel_linux_restart_syscall_tramp_frame);
+  }
 
   /* Core file support.  */
   set_gdbarch_regset_from_core_section (gdbarch,

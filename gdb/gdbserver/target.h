@@ -312,6 +312,9 @@ struct target_ops
   /* Returns the core given a thread, or -1 if not known.  */
   int (*core_of_thread) (ptid_t);
 
+  /* Returns the extra information associated with a thread */
+  const char *(*thread_extra) (ptid_t);
+
   /* Read loadmaps.  Read LEN bytes at OFFSET into a buffer at MYADDR.  */
   int (*read_loadmap) (const char *annex, CORE_ADDR offset,
 		       unsigned char *myaddr, unsigned int len);
@@ -571,6 +574,10 @@ ptid_t mywait (ptid_t ptid, struct target_waitstatus *ourstatus, int options,
 #define target_core_of_thread(ptid)		\
   (the_target->core_of_thread ? (*the_target->core_of_thread) (ptid) \
    : -1)
+
+#define target_thread_extra(ptid)	\
+  (the_target->thread_extra ? (*the_target->thread_extra) (ptid) \
+   : 0)
 
 int read_inferior_memory (CORE_ADDR memaddr, unsigned char *myaddr, int len);
 

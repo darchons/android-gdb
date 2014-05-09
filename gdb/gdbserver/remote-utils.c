@@ -65,6 +65,10 @@
 #include <winsock2.h>
 #endif
 
+#ifdef HAVE_SYS_UN_H
+#include <sys/un.h>
+#endif
+
 #if __QNX__
 #include <sys/iomgr.h>
 #endif /* __QNX__ */
@@ -311,6 +315,38 @@ remote_open (char *name)
       add_file_handler (remote_desc, handle_serial_event, NULL);
     }
 #ifndef USE_WIN32API
+#ifdef HAVE_SYS_UN_H
+  else if (name[0] == '+')
+    {
+      struct sockaddr_un sockaddr;
+      socklen_t sockaddrlen;
+
+      name += 1; // skip the initial +
+
+      listen_desc = socket (AF_UNIX, SOCK_STREAM, 0);
+      if (listen_desc < 0)
+        perror_with_name ("Could not create Unix-domain socket");
+
+      memset (&sockaddr, 0, sizeof sockaddr);
+      sockaddr.sun_family = AF_UNIX;
+      strlcpy(sockaddr.sun_path, name, sizeof sockaddr.sun_path);
+
+      unlink (sockaddr.sun_path);
+      sockaddrlen = sizeof(sockaddr.sun_family) + strlen(sockaddr.sun_path) + 1;
+      if (bind (listen_desc, (struct sockaddr *)&sockaddr, sockaddrlen) < 0)
+        perror_with_name ("Could not bind to Unix-domain socket");
+      if (listen (listen_desc, 1) < 0)
+        perror_with_name ("Could not listen to Unix-domain socket");
+
+      fprintf (stderr, "Listening on Unix socket %s\n", sockaddr.sun_path);
+      fflush (stderr);
+
+      /* Register the event loop handler.  */
+      add_file_handler (listen_desc, handle_accept_event, NULL);
+
+      transport_is_reliable = 1;
+    }
+#endif /* HAVE_SYS_UN_H */
   else if (port_str == NULL)
     {
       struct stat statbuf;
