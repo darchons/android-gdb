@@ -8076,7 +8076,8 @@ remote_insert_breakpoint (struct gdbarch *gdbarch,
 
   if (remote_protocol_packets[PACKET_Z0].support != PACKET_DISABLE)
     {
-      CORE_ADDR addr = bp_tgt->placed_address;
+      CORE_ADDR addr = bp_tgt->requested_address ?
+		       bp_tgt->requested_address : bp_tgt->placed_address;
       struct remote_state *rs;
       char *p, *endbuf;
       int bpsize;

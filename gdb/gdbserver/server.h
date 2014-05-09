@@ -239,6 +239,10 @@ extern int non_stop;
 
 extern int disable_randomization;
 
+#ifdef __ANDROID__
+extern int ignore_ondemand;
+#endif
+
 #if USE_WIN32API
 #include <winsock2.h>
 typedef SOCKET gdb_fildes_t;

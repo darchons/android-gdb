@@ -57,7 +57,8 @@ case "${target}" in
 			srv_linux_regsets=yes
 			srv_linux_thread_db=yes
 			;;
-  arm*-*-linux*)	srv_regobj="reg-arm.o arm-with-iwmmxt.o"
+  arm*-*-linux*|arm*-*android*)
+			srv_regobj="reg-arm.o arm-with-iwmmxt.o"
 			srv_regobj="${srv_regobj} arm-with-vfpv2.o"
 			srv_regobj="${srv_regobj} arm-with-vfpv3.o"
 			srv_regobj="${srv_regobj} arm-with-neon.o"
