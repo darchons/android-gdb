@@ -966,6 +966,7 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_maintainer_mode
+with_sysroot
 enable_dependency_tracking
 '
       ac_precious_vars='build_alias
@@ -1599,6 +1600,11 @@ Optional Features:
 			  (and sometimes confusing) to the casual installer
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
+
+Optional Packages:
+  --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+  --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-sysroot=SYSROOT  use sysroot as the system root during the build
 
 Some influential environment variables:
   CC          C compiler command
@@ -2704,6 +2710,17 @@ fi
 
   MAINT=$MAINTAINER_MODE_TRUE
 
+
+
+
+# Check whether --with-sysroot was given.
+if test "${with_sysroot+set}" = set; then :
+  withval=$with_sysroot; if test x"$withval" != x ; then
+     CFLAGS="$CFLAGS --sysroot=$withval"
+     CPPFLAGS="$CPPFLAGS --sysroot=$withval"
+     LDFLAGS="$LDFLAGS --sysroot=$withval"
+   fi
+fi
 
 
 ac_ext=c

@@ -23,6 +23,16 @@ AC_INIT(import/memmem.c)
 AC_CONFIG_HEADER(config.h:config.in)
 AM_MAINTAINER_MODE
 
+AC_ARG_WITH([sysroot],
+  [AS_HELP_STRING([--with-sysroot=SYSROOT],
+                  [use sysroot as the system root during the build])],
+  [if test x"$withval" != x ; then
+     CFLAGS="$CFLAGS --sysroot=$withval"
+     CPPFLAGS="$CPPFLAGS --sysroot=$withval"
+     LDFLAGS="$LDFLAGS --sysroot=$withval"
+   fi],
+  [])
+
 AC_PROG_CC
 AC_USE_SYSTEM_EXTENSIONS
 gl_EARLY

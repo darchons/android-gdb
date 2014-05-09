@@ -26,6 +26,11 @@ extern int debug_threads;
 
 static int thread_db_use_events;
 
+/* Android doesn't have libthread_db.so.1, just libthread_db.so.  */
+#ifdef __ANDROID__
+#define LIBTHREAD_DB_SO "libthread_db.so"
+#endif
+
 #include "gdb_proc_service.h"
 #include "gdb_thread_db.h"
 #include "gdb_vecs.h"
@@ -558,7 +563,7 @@ thread_db_load_search (void)
   tdb->td_symbol_list_p = &td_symbol_list;
 
   /* This is required only when thread_db_use_events is on.  */
-  tdb->td_thr_event_enable_p = &td_thr_event_enable;
+  tdb->td_thr_event_enable_p = (void*)&td_thr_event_enable;
 
   /* These are not essential.  */
   tdb->td_ta_event_addr_p = &td_ta_event_addr;

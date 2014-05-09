@@ -7064,6 +7064,11 @@ gdb_agent_remove_socket (void)
   unlink (agent_socket_name);
 }
 
+#if defined(__ANDROID__) && !defined(SYS_gettid)
+#include <sys/linux-syscalls.h>
+#define SYS_gettid __NR_gettid
+#endif
+
 /* Helper thread of agent.  */
 
 static void *
@@ -7099,7 +7104,11 @@ gdb_agent_helper_thread (void *arg)
 
 	  do
 	    {
+#ifdef __ANDROID__
+	      fd = accept (listen_fd, (struct sockaddr*)&sockaddr, &tmp);
+#else
 	      fd = accept (listen_fd, &sockaddr, &tmp);
+#endif
 	    }
 	  /* It seems an ERESTARTSYS can escape out of accept.  */
 	  while (fd == -512 || (fd == -1 && errno == EINTR));

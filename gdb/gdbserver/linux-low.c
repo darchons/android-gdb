@@ -465,7 +465,12 @@ handle_extended_wait (struct lwp_info *event_child, int wstat)
 	  else if (ret != new_pid)
 	    warning ("wait returned unexpected PID %d", ret);
 	  else if (!WIFSTOPPED (status))
-	    warning ("wait returned unexpected status 0x%x", status);
+	    {
+		  /* new thread exited?! better not do anything more */
+		  warning ("wait returned unexpected status 0x%x", status);
+		  linux_resume_one_lwp (event_child, event_child->stepping, 0, NULL);
+		  return;
+	    }
 	}
 
       linux_enable_event_reporting (new_pid);
@@ -581,6 +586,34 @@ get_stop_pc (struct lwp_info *lwp)
       && !lwp->stopped_by_watchpoint
       && lwp->last_status >> 16 == 0)
     stop_pc -= the_low_target.decr_pc_after_break;
+
+#if defined(__ANDROID__) && defined(__arm__)
+  /* Work around Android kernel bug introduced in
+     rev 255914b9 and fixed in rev 23b6f139, where
+     during a SIGILL due to a Thumb-2 instruction,
+     the exception PC is improperly adjusted to
+     point to the middle of the instruction  */
+  if (WSTOPSIG (lwp->last_status) == SIGILL)
+    {
+      unsigned short inst[2];
+      // don't use suspend. we don't get another chance to unsuspend
+      stop_all_lwps(0, lwp);
+      if (!(*the_target->read_memory) (stop_pc - sizeof(inst[0]),
+                                       (unsigned char *) inst,
+                                       sizeof(inst)) &&
+          inst[0] == 0xf7f0 && (inst[1] & 0xf000) == 0xa000)
+        {
+          struct regcache *regcache;
+          regcache = get_thread_regcache (get_lwp_thread (lwp), 1);
+          (*the_low_target.set_pc) (regcache, stop_pc -= sizeof(inst[0]));
+          if (debug_threads)
+            fprintf (stderr, "corrected thumb-2 breakpoint pc\n");
+        }
+      if (non_stop)
+        // continue other threads in non-stop mode
+        unstop_all_lwps(0, lwp);
+    }
+#endif
 
   if (debug_threads)
     fprintf (stderr, "stop pc is 0x%lx\n", (long) stop_pc);
@@ -2315,6 +2348,9 @@ linux_wait_1 (ptid_t ptid,
   int maybe_internal_trap;
   int report_to_gdb;
   int trace_event;
+#ifdef __ANDROID__
+  void *last_sigsegv_addr = NULL;
+#endif /* __ANDROID__ */
 
   /* Translate generic target options into linux options.  */
   options = __WALL;
@@ -2579,6 +2615,30 @@ Check if we're already there.\n",
 
   /* Check whether GDB would be interested in this event.  */
 
+#ifdef __ANDROID__
+  if (WIFSTOPPED (w)
+    && WSTOPSIG (w) == SIGSEGV)
+    {
+      // Ignore SIGSEGV caused by on-demand decompression
+      siginfo_t info;
+      if (ignore_ondemand
+	&& ptrace (PTRACE_GETSIGINFO, lwpid_of (event_child), 0, &info) == 0
+	&& info.si_code == SEGV_ACCERR
+	&& info.si_addr
+	&& info.si_addr != last_sigsegv_addr)
+	{
+	  if (debug_threads)
+	    fprintf (stderr, "ignored on-demand SIGSEGV at %p.\n",
+		     info.si_addr);
+	  last_sigsegv_addr = info.si_addr;
+	}
+      else
+	{
+	  last_sigsegv_addr = NULL;
+	}
+    }
+#endif /* __ANDROID__ */
+
   /* If GDB is not interested in this signal, don't stop other
      threads, and don't report it to GDB.  Just resume the inferior
      right away.  We do this for threading-related signals as well as
@@ -2595,6 +2655,10 @@ Check if we're already there.\n",
 	  (current_process ()->private->thread_db != NULL
 	   && (WSTOPSIG (w) == __SIGRTMIN
 	       || WSTOPSIG (w) == __SIGRTMIN + 1))
+	  ||
+#elif defined (__ANDROID__)
+	  (WSTOPSIG (w) == SIGSEGV
+	   && last_sigsegv_addr)
 	  ||
 #endif
 	  (pass_signals[gdb_signal_from_host (WSTOPSIG (w))]
