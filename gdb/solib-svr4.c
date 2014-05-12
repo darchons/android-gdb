@@ -260,6 +260,19 @@ lm_addr_check (const struct so_list *so, bfd *abfd)
 
       dynaddr = bfd_section_vma (abfd, dyninfo_sect);
 
+      if (is_target_linux_android ())
+	{
+	  /* Workaround Android 4.1 linker bug that
+	     gives gdb an incorrect linker base address */
+	  if (! l_addr && ! l_dynaddr &&
+	    strcmp (so->so_original_name, "/system/bin/linker") == 0 &&
+	    target_auxv_search (&current_target, AT_BASE, &l_addr) > 0)
+	    {
+	      so->lm_info->l_ld = l_addr + dynaddr;
+	      goto set_addr;
+	    }
+	}
+
       if (dynaddr + l_addr != l_dynaddr)
 	{
 	  CORE_ADDR align = 0x1000;
@@ -899,6 +912,21 @@ solib_svr4_r_brk (struct svr4_info *info)
 				    ptr_type);
 }
 
+/* Find r_state from the inferior's debug base.  */
+
+static enum {
+    RT_CONSISTENT,
+    RT_ADD,
+    RT_DELETE }
+solib_svr4_r_state (struct svr4_info *info)
+{
+  struct link_map_offsets *lmo = svr4_fetch_link_map_offsets ();
+  enum bfd_endian byte_order = gdbarch_byte_order (target_gdbarch ());
+
+  return (int) read_memory_unsigned_integer (info->debug_base + lmo->r_state_offset,
+				    lmo->r_version_size, byte_order);
+}
+
 /* Find the link map for the dynamic linker (if it is not in the
    normal list of loaded shared objects).  */
 
@@ -1041,9 +1069,17 @@ struct svr4_library_list
 {
   struct so_list *head, **tailp;
 
+  /* Flag indicating if the first element in the list should be ignored for
+     being the main executable */
+  int ignore_first;
+
   /* Inferior address of struct link_map used for the main executable.  It is
      NULL if not known.  */
   CORE_ADDR main_lm;
+
+  /* Inferior address of struct r_debug used for the debugger interface.  It is
+     NULL if not known.  */
+  CORE_ADDR debug_base;
 };
 
 /* Implementation for target_so_ops.free_so.  */
@@ -1126,6 +1162,13 @@ library_list_start_library (struct gdb_xml_parser *parser,
   ULONGEST *l_ldp = xml_find_attribute (attributes, "l_ld")->value;
   struct so_list *new_elem;
 
+  if (list->ignore_first)
+    {
+      list->ignore_first = 0;
+      list->main_lm = *lmp;
+      return;
+    }
+
   new_elem = XZALLOC (struct so_list);
   new_elem->lm_info = XZALLOC (struct lm_info);
   new_elem->lm_info->lm_addr = *lmp;
@@ -1149,15 +1192,16 @@ svr4_library_list_start_list (struct gdb_xml_parser *parser,
 {
   struct svr4_library_list *list = user_data;
   const char *version = xml_find_attribute (attributes, "version")->value;
-  struct gdb_xml_value *main_lm = xml_find_attribute (attributes, "main-lm");
+  struct gdb_xml_value *debug_base =
+    xml_find_attribute (attributes, "debug-base");
 
   if (strcmp (version, "1.0") != 0)
     gdb_xml_error (parser,
 		   _("SVR4 Library list has unsupported version \"%s\""),
 		   version);
 
-  if (main_lm)
-    list->main_lm = *(ULONGEST *) main_lm->value;
+  if (debug_base)
+    list->debug_base = *(ULONGEST *) debug_base->value;
 }
 
 /* The allowed elements and attributes for an XML library list.
@@ -1185,7 +1229,7 @@ static const struct gdb_xml_element svr4_library_list_children[] =
 static const struct gdb_xml_attribute svr4_library_list_attributes[] =
 {
   { "version", GDB_XML_AF_NONE, NULL, NULL },
-  { "main-lm", GDB_XML_AF_OPTIONAL, gdb_xml_parse_attr_ulongest, NULL },
+  { "debug-base", GDB_XML_AF_OPTIONAL, gdb_xml_parse_attr_ulongest, NULL },
   { NULL, GDB_XML_AF_NONE, NULL, NULL }
 };
 
@@ -1203,13 +1247,15 @@ static const struct gdb_xml_element svr4_library_list_elements[] =
    empty, caller is responsible for freeing all its entries.  */
 
 static int
-svr4_parse_libraries (const char *document, struct svr4_library_list *list)
+svr4_parse_libraries (const char *document, struct svr4_library_list *list,
+		      int ignore_first)
 {
   struct cleanup *back_to = make_cleanup (svr4_free_library_list,
 					  &list->head);
 
   memset (list, 0, sizeof (*list));
   list->tailp = &list->head;
+  list->ignore_first = ignore_first;
   if (gdb_xml_parse_quick (_("target library list"), "library-list.dtd",
 			   svr4_library_list_elements, document, list) == 0)
     {
@@ -1234,7 +1280,7 @@ svr4_parse_libraries (const char *document, struct svr4_library_list *list)
 
 static int
 svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list,
-				     const char *annex)
+				     const char *annex, int ignore_first)
 {
   char *svr4_library_document;
   int result;
@@ -1250,7 +1296,7 @@ svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list,
     return 0;
 
   back_to = make_cleanup (xfree, svr4_library_document);
-  result = svr4_parse_libraries (svr4_library_document, list);
+  result = svr4_parse_libraries (svr4_library_document, list, ignore_first);
   do_cleanups (back_to);
 
   return result;
@@ -1260,7 +1306,7 @@ svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list,
 
 static int
 svr4_current_sos_via_xfer_libraries (struct svr4_library_list *list,
-				     const char *annex)
+				     const char *annex, int ignore_first)
 {
   return 0;
 }
@@ -1406,6 +1452,25 @@ svr4_current_sos_direct (struct svr4_info *info)
   int ignore_first;
   struct svr4_library_list library_list;
 
+  info = get_svr4_info ();
+
+  if (info->debug_base)
+    {
+      int r_state = (int) solib_svr4_r_state(info);
+      if (r_state == RT_ADD || r_state == RT_DELETE)
+	{
+	  /* Skip returning list if list is not consistent */
+	  return NULL;
+	}
+    }
+
+  /* Assume that everything is a library if the dynamic loader was loaded
+     late by a static executable.  */
+  if (exec_bfd && bfd_get_section_by_name (exec_bfd, ".dynamic") == NULL)
+    ignore_first = 0;
+  else
+    ignore_first = 1;
+
   /* Fall back to manual examination of the target if the packet is not
      supported or gdbserver failed to find DT_DEBUG.  gdb.server/solib-list.exp
      tests a case where gdbserver cannot find the shared libraries list while
@@ -1415,11 +1480,15 @@ svr4_current_sos_direct (struct svr4_info *info)
      suboptimal code path.  */
 
   info->using_xfer = svr4_current_sos_via_xfer_libraries (&library_list,
-							  NULL);
+							  NULL, ignore_first);
   if (info->using_xfer)
     {
-      if (library_list.main_lm)
-	info->main_lm_addr = library_list.main_lm;
+      if (library_list.main_lm || library_list.debug_base)
+	{
+	  info = get_svr4_info ();
+	  info->main_lm_addr = library_list.main_lm;
+	  info->debug_base = library_list.debug_base;
+	}
 
       return library_list.head ? library_list.head : svr4_default_sos ();
     }
@@ -1432,13 +1501,6 @@ svr4_current_sos_direct (struct svr4_info *info)
      must not be a dynamically linked executable.  Hmm.  */
   if (! info->debug_base)
     return svr4_default_sos ();
-
-  /* Assume that everything is a library if the dynamic loader was loaded
-     late by a static executable.  */
-  if (exec_bfd && bfd_get_section_by_name (exec_bfd, ".dynamic") == NULL)
-    ignore_first = 0;
-  else
-    ignore_first = 1;
 
   back_to = make_cleanup (svr4_free_library_list, &head);
 
@@ -1723,7 +1785,7 @@ solist_update_incremental (struct svr4_info *info, CORE_ADDR lm)
       xsnprintf (annex, sizeof (annex), "start=%s;prev=%s",
 		 phex_nz (lm, sizeof (lm)),
 		 phex_nz (prev_lm, sizeof (prev_lm)));
-      if (!svr4_current_sos_via_xfer_libraries (&library_list, annex))
+      if (!svr4_current_sos_via_xfer_libraries (&library_list, annex, 0))
 	return 0;
 
       tail->next = library_list.head;
@@ -2096,6 +2158,7 @@ enable_break (struct svr4_info *info, int from_tty)
   asection *interp_sect;
   char *interp_name;
   CORE_ADDR sym_addr;
+  CORE_ADDR svr4_sym_addr = 0;
 
   info->interp_text_sect_low = info->interp_text_sect_high = 0;
   info->interp_plt_sect_low = info->interp_plt_sect_high = 0;
@@ -2114,10 +2177,9 @@ enable_break (struct svr4_info *info, int from_tty)
     {
       struct obj_section *os;
 
-      sym_addr = gdbarch_addr_bits_remove
-	(target_gdbarch (), gdbarch_convert_from_func_ptr_addr (target_gdbarch (),
-							     sym_addr,
-							     &current_target));
+      sym_addr = gdbarch_convert_from_func_ptr_addr (target_gdbarch (),
+						     sym_addr,
+						     &current_target);
 
       /* On at least some versions of Solaris there's a dynamic relocation
 	 on _r_debug.r_brk and SYM_ADDR may not be relocated yet, e.g., if
@@ -2172,6 +2234,16 @@ enable_break (struct svr4_info *info, int from_tty)
 	  svr4_create_solib_event_breakpoints (target_gdbarch (), sym_addr);
 	  return 1;
 	}
+      else
+	{
+	  /* We gave up above, because we couldn't locate sym_addr in any
+	     obj_section. This can happen on Android (JB and earlier)
+	     if /system/bin/linker errantly reports its own base address
+	     as 0.  Regardless, the value retrieved from r_debug->r_brk
+	     is quite often correct, so let's preserve it for possible
+	     use farther down. */
+	  svr4_sym_addr = sym_addr;
+	}
     }
 
   /* Find the program interpreter; if not found, warn the user and drop
@@ -2225,6 +2297,15 @@ enable_break (struct svr4_info *info, int from_tty)
 	      break;
 	    }
 	  so = so->next;
+	}
+
+      if (load_addr_found && !load_addr)
+	{
+	  /* On at least some revisions of Android (ICS and JB,) the
+	     code above decides that the load_addr of /system/bin/linker
+	     is zero.  Here we check for that outcome, and continue on
+	     with the AT_BASE method if necessary. */
+	  load_addr_found = 0;
 	}
 
       /* If we were not able to find the base address of the loader
@@ -2319,6 +2400,15 @@ enable_break (struct svr4_info *info, int from_tty)
 	sym_addr = gdbarch_convert_from_func_ptr_addr (target_gdbarch (),
 						       sym_addr,
 						       tmp_bfd_target);
+
+      /* We might have gotten to this point because the runtime linker
+         on Android (JB and earlier) neither correctly reports its base
+         address, nor exports an 'rtld_db_dlactivity' symbol.  However,
+         we might have gotten a valid value from r_debug->r_brk, earlier. */
+      if (svr4_sym_addr && load_addr_found && !sym_addr)
+	{
+	  sym_addr = svr4_sym_addr - load_addr;
+	}
 
       /* We're done with both the temporary bfd and target.  Closing
          the target closes the underlying bfd, because it holds the
@@ -3059,6 +3149,7 @@ svr4_ilp32_fetch_link_map_offsets (void)
       lmo.r_version_size = 4;
       lmo.r_map_offset = 4;
       lmo.r_brk_offset = 8;
+      lmo.r_state_offset = 12;
       lmo.r_ldsomap_offset = 20;
 
       /* Everything we need is in the first 20 bytes.  */
@@ -3090,6 +3181,7 @@ svr4_lp64_fetch_link_map_offsets (void)
       lmo.r_version_size = 4;
       lmo.r_map_offset = 8;
       lmo.r_brk_offset = 16;
+      lmo.r_state_offset = 24;
       lmo.r_ldsomap_offset = 40;
 
       /* Everything we need is in the first 40 bytes.  */

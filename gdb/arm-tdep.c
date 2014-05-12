@@ -432,6 +432,14 @@ arm_pc_is_thumb (struct gdbarch *gdbarch, CORE_ADDR memaddr)
   if (strcmp (arm_fallback_mode_string, "thumb") == 0)
     return 1;
 
+  /* If we are at the entry point, we can try checking the entry address */
+  {
+    CORE_ADDR ep;
+    if (symfile_objfile && symfile_objfile->ei.entry_point_p &&
+	entry_point_address_query (&ep) && memaddr == ep)
+      return IS_THUMB_ADDR (symfile_objfile->ei.entry_point);
+  }
+
   /* If we couldn't find any symbol, but we're talking to a running
      target, then trust the current value of $cpsr.  This lets
      "display/i $pc" always show the correct mode (though if there is
@@ -1354,6 +1362,178 @@ arm_skip_stack_protector(CORE_ADDR pc, struct gdbarch *gdbarch)
     return pc + offset + 8;
 }
 
+/* Subroutine of skip_gcc_pic_assignment to simplify it.
+   After establishing that we're at a gcc pic assignment,
+   return a possibly adjusted value for the end of the prologue.
+   PIC_ASSIGNMENT_LENGTH is the total length of insns that assign
+   the pic reg.  */
+
+static CORE_ADDR
+skip_gcc_pic_assignment_1 (struct gdbarch *gdbarch,
+                           CORE_ADDR func_addr, CORE_ADDR post_prologue_pc,
+                           int pic_assignment_length)
+{
+  struct symtab_and_line func_addr_sal, post_prologue_sal, sal2;
+
+  func_addr_sal = find_pc_line (func_addr, 0);
+  sal2 = find_pc_line (post_prologue_pc + pic_assignment_length, 0);
+  /* Catch the case of being in the middle of the prologue.  */
+  if (func_addr_sal.line != 0
+      && func_addr_sal.line == sal2.line)
+    post_prologue_pc = sal2.end;
+  /* Catch the case of being at the end of the prologue.  */
+  else
+    {
+      post_prologue_sal = find_pc_line (post_prologue_pc, 0);
+      if (post_prologue_sal.line != 0
+          && sal2.line != 0
+          && sal2.line <= post_prologue_sal.line)
+        post_prologue_pc = post_prologue_sal.end;
+    }
+
+  return post_prologue_pc;
+}
+
+/* Subroutine of skip_gcc_pic_assignment to simplify it.
+   Skip version 1 of a thumb pic register assignment.
+   The result is the length of the code in bytes or zero if not for pic.  */
+
+static int
+skip_gcc_thumb_pic_assignment_1 (struct gdbarch *gdbarch, CORE_ADDR addr)
+{
+  enum bfd_endian byte_order_for_code = gdbarch_byte_order_for_code (gdbarch);
+  unsigned short insn;
+  unsigned int reg;
+
+  insn = read_memory_unsigned_integer (addr, 2, byte_order_for_code);
+  if ((insn & 0xf800) != 0x4800) /* ldr rN,[pc,foo] */
+    return 0;
+
+  reg = (insn >> 8) & 7;
+  insn = read_memory_unsigned_integer (addr + 2, 2, byte_order_for_code);
+  if ((insn & 0xffff)
+      /* Note: We know reg < 8 here.  */
+      != (0x4400 + 0x78 /* pc */ + reg)) /* add rN, pc */
+    return 0;
+
+  return 4;
+}
+
+/* Subroutine of skip_gcc_pic_assignment to simplify it.
+   Skip version 1 of an arm pic register assignment.
+   The result is the length of the code in bytes or zero if not for pic.  */
+
+static int
+skip_gcc_arm_pic_assignment_1 (struct gdbarch *gdbarch, CORE_ADDR addr)
+{
+  enum bfd_endian byte_order_for_code = gdbarch_byte_order_for_code (gdbarch);
+  unsigned int insn;
+  unsigned int reg;
+
+  insn = read_memory_unsigned_integer (addr, 4, byte_order_for_code);
+  if ((insn & 0xffff0000)
+      != (0xe5900000 + 0xf0000 /*pc*/)) /* ldr rN,[pc,foo] */
+    return 0;
+
+  reg = (insn >> 12) & 15;
+  insn = read_memory_unsigned_integer (addr + 4, 4, byte_order_for_code);
+  if ((insn & 0xffffffff)
+      /* add rN, pc, rN */
+      != (0xe0800000 + 0xf0000 /*pc*/ + (reg << 12) + reg))
+    return 0;
+
+  return 8;
+}
+
+/* Subroutine of skip_gcc_pic_assignment to simplify it.
+   Skip version 2 of an arm pic register assignment.
+   The result is the length of the code in bytes or zero if not for pic.  */
+
+static int
+skip_gcc_arm_pic_assignment_2 (struct gdbarch *gdbarch, CORE_ADDR addr)
+{
+  enum bfd_endian byte_order_for_code = gdbarch_byte_order_for_code (gdbarch);
+  unsigned int insn;
+  unsigned int regM, regN, regX, offset;
+
+  insn = read_memory_unsigned_integer (addr, 4, byte_order_for_code);
+  if ((insn & 0xffff0000)
+      != (0xe5900000 + 0xf0000 /*pc*/)) /* ldr rM,[pc,foo] */
+    return 0;
+
+  regM = (insn >> 12) & 15;
+  insn = read_memory_unsigned_integer (addr + 4, 4, byte_order_for_code);
+  if ((insn & 0xfff0f000)
+      != (0xe5000000 + (regM << 12))) /* str rM,[rX,-offset] */
+    return 0;
+  regX = (insn >> 16) & 15;
+  offset = insn & 4095;
+
+  insn = read_memory_unsigned_integer (addr + 8, 4, byte_order_for_code);
+  if ((insn & 0xffff0fff)
+      != (0xe5100000 + (regX << 16) + offset)) /* ldr rN,[rX,-offset] */
+    return 0;
+
+  regN = (insn >> 12) & 15;
+  insn = read_memory_unsigned_integer (addr + 12, 4, byte_order_for_code);
+  if ((insn & 0xffffffff)
+      /* add rN, pc, rN */
+      != (0xe0800000 + 0xf0000 /*pc*/ + (regN << 12) + regN))
+    return 0;
+
+  insn = read_memory_unsigned_integer (addr + 16, 4, byte_order_for_code);
+  if ((insn & 0xffffffff)
+      != (0xe5000000 + (regX << 16) + (regN << 12) + offset)) /* str rN,[rX,-offset] */
+    return 0;
+
+  return 20;
+}
+
+/* Subroutine of arm_skip_prologue to simplify it.
+   Compensate for GCC 4.4.0 inserting pic register initialization in the
+   middle of the prologue with a line number outside the prologue.
+   This breaks skip_prologue_using_sal.
+   FUNC_ADDR is the start_pc result of find_pc_partial_function.
+   POST_PROLOGUE_PC is the pc returned by skip_prologue_using_sal.
+   The result is the new post-prologue-pc to use.
+
+   Two variations of loading the pic register have been seen:
+
+   (1) ldr rN,[pc,foo]
+       add rN, pc, rN
+
+   (2) ldr rM, [pc, foo]
+       str rM, [rX, offset]
+       ldr rN, [rX, offset]
+       add rN, pc, rN
+       str rN, [rX, offset]
+*/
+
+static CORE_ADDR
+skip_gcc_pic_assignment (struct gdbarch *gdbarch,
+                         CORE_ADDR func_addr, CORE_ADDR post_prologue_pc)
+{
+  enum bfd_endian byte_order_for_code = gdbarch_byte_order_for_code (gdbarch);
+  unsigned int length;
+
+  if (arm_pc_is_thumb (gdbarch, func_addr))
+    {
+      length = skip_gcc_thumb_pic_assignment_1 (gdbarch, post_prologue_pc);
+    }
+  else
+    {
+      length = skip_gcc_arm_pic_assignment_1 (gdbarch, post_prologue_pc);
+      if (length == 0)
+        length = skip_gcc_arm_pic_assignment_2 (gdbarch, post_prologue_pc);
+    }
+
+  if (length != 0)
+    post_prologue_pc =
+      skip_gcc_pic_assignment_1 (gdbarch, func_addr, post_prologue_pc, length);
+
+  return post_prologue_pc;
+}
+
 /* Advance the PC across any function entry prologue instructions to
    reach some "real" code.
 
@@ -1390,6 +1570,15 @@ arm_skip_prologue (struct gdbarch *gdbarch, CORE_ADDR pc)
 	post_prologue_pc
 	  = arm_skip_stack_protector (post_prologue_pc, gdbarch);
 
+      if (post_prologue_pc && is_target_linux_android ())
+        {
+          /* GCC 4.4.0 will move the setting of the pic register into the
+             middle of the prologue using line numbers from the original
+             location.  :-(  Compensate.  */
+          CORE_ADDR post_pic_pc = skip_gcc_pic_assignment (gdbarch, func_addr,
+                                                           post_prologue_pc);
+          post_prologue_pc = max (pc, post_pic_pc);
+        }
 
       /* GCC always emits a line note before the prologue and another
 	 one after, even if the two are at the same address or on the
@@ -1981,12 +2170,14 @@ arm_scan_prologue (struct frame_info *this_frame,
 	 The value stored there should be the address of the stmfd + 8.  */
       CORE_ADDR frame_loc;
       LONGEST return_value;
+      gdb_byte return_buf[sizeof (LONGEST)];
 
       frame_loc = get_frame_register_unsigned (this_frame, ARM_FP_REGNUM);
-      if (!safe_read_memory_integer (frame_loc, 4, byte_order, &return_value))
+      if (target_read_memory (frame_loc, return_buf, 4))
         return;
       else
         {
+          return_value = extract_signed_integer (return_buf, 4, byte_order);
           prologue_start = gdbarch_addr_bits_remove
 			     (gdbarch, return_value) - 8;
           prologue_end = prologue_start + 64;	/* See above.  */
@@ -5291,6 +5482,8 @@ arm_adjust_breakpoint_address (struct gdbarch *gdbarch, CORE_ADDR bpaddr)
   if (!arm_pc_is_thumb (gdbarch, bpaddr))
     return bpaddr;
 
+  bpaddr = gdbarch_addr_bits_remove (gdbarch, bpaddr);
+
   /* We are setting a breakpoint in Thumb code that could potentially
      contain an IT block.  The first step is to find how much Thumb
      code there is; we do not need to read outside of known Thumb
@@ -5299,8 +5492,6 @@ arm_adjust_breakpoint_address (struct gdbarch *gdbarch, CORE_ADDR bpaddr)
   if (map_type == 0)
     /* Thumb-2 code must have mapping symbols to have a chance.  */
     return bpaddr;
-
-  bpaddr = gdbarch_addr_bits_remove (gdbarch, bpaddr);
 
   if (find_pc_partial_function (bpaddr, NULL, &func_start, NULL)
       && func_start > boundary)
