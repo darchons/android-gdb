@@ -96,8 +96,13 @@ static const char *xmltarget_amd64_linux_no_xml = "@<target>\
 </target>";
 #endif
 
+#ifdef HAVE_SYS_REG_H
 #include <sys/reg.h>
+#endif
+#ifdef HAVE_SYS_PROCFS_H
 #include <sys/procfs.h>
+#endif
+
 #include <sys/ptrace.h>
 #include <sys/uio.h>
 
@@ -117,6 +122,21 @@ static const char *xmltarget_amd64_linux_no_xml = "@<target>\
 /* This definition comes from prctl.h, but some kernels may not have it.  */
 #ifndef PTRACE_ARCH_PRCTL
 #define PTRACE_ARCH_PRCTL      30
+#endif
+
+#ifndef PTRACE_ARG3_TYPE
+#ifdef __ANDROID__
+#define PTRACE_ARG3_TYPE void*
+#else
+#define PTRACE_ARG3_TYPE unsigned int
+#endif
+#endif
+#ifndef PTRACE_ARG4_TYPE
+#ifdef __ANDROID__
+#define PTRACE_ARG4_TYPE void*
+#else
+#define PTRACE_ARG4_TYPE long
+#endif
 #endif
 
 /* The following definitions come from prctl.h, but may be absent
@@ -245,7 +265,7 @@ ps_get_thread_area (const struct ps_prochandle *ph,
     unsigned int desc[4];
 
     if (ptrace (PTRACE_GET_THREAD_AREA, lwpid,
-		(void *) (intptr_t) idx, (unsigned long) &desc) < 0)
+		(void *) (intptr_t) idx, (PTRACE_ARG4_TYPE) &desc) < 0)
       return PS_ERR;
 
     /* Ensure we properly extend the value to 64-bits for x86_64.  */
@@ -292,7 +312,7 @@ x86_get_thread_area (int lwpid, CORE_ADDR *addr)
 
     if (ptrace (PTRACE_GET_THREAD_AREA,
 		lwpid_of (lwp),
-		(void *) (long) idx, (unsigned long) &desc) < 0)
+		(void *) (long) idx, (PTRACE_ARG4_TYPE) &desc) < 0)
       return -1;
 
     *addr = desc[1];
@@ -508,7 +528,7 @@ x86_linux_dr_get (ptid_t ptid, int regnum)
 
   errno = 0;
   value = ptrace (PTRACE_PEEKUSER, tid,
-		  offsetof (struct user, u_debugreg[regnum]), 0);
+		  (PTRACE_ARG3_TYPE)offsetof (struct user, u_debugreg[regnum]), 0);
   if (errno != 0)
     error ("Couldn't read debug register");
 
@@ -524,7 +544,7 @@ x86_linux_dr_set (ptid_t ptid, int regnum, unsigned long value)
 
   errno = 0;
   ptrace (PTRACE_POKEUSER, tid,
-	  offsetof (struct user, u_debugreg[regnum]), value);
+	  (PTRACE_ARG3_TYPE)offsetof (struct user, u_debugreg[regnum]), (PTRACE_ARG4_TYPE)value);
   if (errno != 0)
     error ("Couldn't write debug register");
 }
@@ -1269,7 +1289,8 @@ x86_linux_read_description (void)
     {
       elf_fpxregset_t fpxregs;
 
-      if (ptrace (PTRACE_GETFPXREGS, tid, 0, (long) &fpxregs) < 0)
+      if (ptrace (PTRACE_GETFPXREGS, tid,
+		  (PTRACE_ARG3_TYPE)0, (PTRACE_ARG4_TYPE)(long) &fpxregs) < 0)
 	{
 	  have_ptrace_getfpxregs = 0;
 	  have_ptrace_getregset = 0;
@@ -1303,7 +1324,7 @@ x86_linux_read_description (void)
 
       /* Check if PTRACE_GETREGSET works.  */
       if (ptrace (PTRACE_GETREGSET, tid,
-		  (unsigned int) NT_X86_XSTATE, (long) &iov) < 0)
+		  (PTRACE_ARG3_TYPE) NT_X86_XSTATE, (PTRACE_ARG4_TYPE) &iov) < 0)
 	have_ptrace_getregset = 0;
       else
 	{

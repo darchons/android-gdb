@@ -108,7 +108,7 @@
 # include "linux-btrace.h"
 #endif
 
-#ifndef HAVE_ELF32_AUXV_T
+#if !defined(HAVE_ELF32_AUXV_T) || defined(__ANDROID__)
 /* Copied from glibc's elf.h.  */
 typedef struct
 {
@@ -123,7 +123,7 @@ typedef struct
 } Elf32_auxv_t;
 #endif
 
-#ifndef HAVE_ELF64_AUXV_T
+#if !defined(HAVE_ELF64_AUXV_T) || defined(__ANDROID__)
 /* Copied from glibc's elf.h.  */
 typedef struct
 {
@@ -404,7 +404,12 @@ handle_extended_wait (struct lwp_info *event_child, int wstat)
 	  else if (ret != new_pid)
 	    warning ("wait returned unexpected PID %d", ret);
 	  else if (!WIFSTOPPED (status))
-	    warning ("wait returned unexpected status 0x%x", status);
+	    {
+		  /* new thread exited?! better not do anything more */
+		  warning ("wait returned unexpected status 0x%x", status);
+		  linux_resume_one_lwp (event_child, event_child->stepping, 0, NULL);
+		  return;
+	    }
 	}
 
       ptid = ptid_build (pid_of (event_child), new_pid, 0);
@@ -518,6 +523,34 @@ get_stop_pc (struct lwp_info *lwp)
       && !lwp->stopped_by_watchpoint
       && lwp->last_status >> 16 == 0)
     stop_pc -= the_low_target.decr_pc_after_break;
+
+#if defined(__ANDROID__) && defined(__arm__)
+  /* Work around Android kernel bug introduced in
+     rev 255914b9 and fixed in rev 23b6f139, where
+     during a SIGILL due to a Thumb-2 instruction,
+     the exception PC is improperly adjusted to
+     point to the middle of the instruction  */
+  if (WSTOPSIG (lwp->last_status) == SIGILL)
+    {
+      unsigned short inst[2];
+      // don't use suspend. we don't get another chance to unsuspend
+      stop_all_lwps(0, lwp);
+      if (!(*the_target->read_memory) (stop_pc - sizeof(inst[0]),
+                                       (unsigned char *) inst,
+                                       sizeof(inst)) &&
+          inst[0] == 0xf7f0 && (inst[1] & 0xf000) == 0xa000)
+        {
+          struct regcache *regcache;
+          regcache = get_thread_regcache (get_lwp_thread (lwp), 1);
+          (*the_low_target.set_pc) (regcache, stop_pc -= sizeof(inst[0]));
+          if (debug_threads)
+            fprintf (stderr, "corrected thumb-2 breakpoint pc\n");
+        }
+      if (non_stop)
+        // continue other threads in non-stop mode
+        unstop_all_lwps(0, lwp);
+    }
+#endif
 
   if (debug_threads)
     fprintf (stderr, "stop pc is 0x%lx\n", (long) stop_pc);
@@ -2264,6 +2297,9 @@ linux_wait_1 (ptid_t ptid,
   int report_to_gdb;
   int trace_event;
   int in_step_range;
+#ifdef __ANDROID__
+  void *last_sigsegv_addr = NULL;
+#endif /* __ANDROID__ */
 
   /* Translate generic target options into linux options.  */
   options = __WALL;
@@ -2529,6 +2565,30 @@ Check if we're already there.\n",
 
   /* Check whether GDB would be interested in this event.  */
 
+#ifdef __ANDROID__
+  if (WIFSTOPPED (w)
+    && WSTOPSIG (w) == SIGSEGV)
+    {
+      // Ignore SIGSEGV caused by on-demand decompression
+      siginfo_t info;
+      if (ignore_ondemand
+	&& ptrace (PTRACE_GETSIGINFO, lwpid_of (event_child), 0, &info) == 0
+	&& info.si_code == SEGV_ACCERR
+	&& info.si_addr
+	&& info.si_addr != last_sigsegv_addr)
+	{
+	  if (debug_threads)
+	    fprintf (stderr, "ignored on-demand SIGSEGV at %p.\n",
+		     info.si_addr);
+	  last_sigsegv_addr = info.si_addr;
+	}
+      else
+	{
+	  last_sigsegv_addr = NULL;
+	}
+    }
+#endif /* __ANDROID__ */
+
   /* If GDB is not interested in this signal, don't stop other
      threads, and don't report it to GDB.  Just resume the inferior
      right away.  We do this for threading-related signals as well as
@@ -2545,6 +2605,10 @@ Check if we're already there.\n",
 	  (current_process ()->private->thread_db != NULL
 	   && (WSTOPSIG (w) == __SIGRTMIN
 	       || WSTOPSIG (w) == __SIGRTMIN + 1))
+	  ||
+#elif defined (__ANDROID__)
+	  (WSTOPSIG (w) == SIGSEGV
+	   && last_sigsegv_addr)
 	  ||
 #endif
 	  (pass_signals[gdb_signal_from_host (WSTOPSIG (w))]
@@ -5603,7 +5667,9 @@ linux_qxfer_libraries_svr4 (const char *annex, unsigned char *readbuf,
     }
 
   document = xmalloc (allocated);
-  strcpy (document, "<library-list-svr4 version=\"1.0\"");
+  sprintf (document,
+	   "<library-list-svr4 version=\"1.0\" debug-base=\"0x%lx\"",
+	   (unsigned long) priv->r_debug);
   p = document + strlen (document);
 
   while (lm_addr
@@ -5627,25 +5693,14 @@ linux_qxfer_libraries_svr4 (const char *annex, unsigned char *readbuf,
 	  break;
 	}
 
-      /* Ignore the first entry even if it has valid name as the first entry
-	 corresponds to the main executable.  The first entry should not be
-	 skipped if the dynamic loader was loaded late by a static executable
-	 (see solib-svr4.c parameter ignore_first).  But in such case the main
-	 executable does not have PT_DYNAMIC present and this function already
-	 exited above due to failed get_r_debug.  */
-      if (lm_prev == 0)
-	{
-	  sprintf (p, " main-lm=\"0x%lx\"", (unsigned long) lm_addr);
-	  p = p + strlen (p);
-	}
-      else
 	{
 	  /* Not checking for error because reading may stop before
 	     we've got PATH_MAX worth of characters.  */
 	  libname[0] = '\0';
 	  linux_read_memory (l_name, libname, sizeof (libname) - 1);
 	  libname[sizeof (libname) - 1] = '\0';
-	  if (libname[0] != '\0')
+	  /* Always include the first entry, i.e. the main executable */
+	  if (libname[0] != '\0' || lm_prev == 0)
 	    {
 	      /* 6x the size for xml_escape_text below.  */
 	      size_t len = 6 * strlen ((char *) libname);
@@ -5799,6 +5854,7 @@ static struct target_ops linux_target_ops = {
   NULL,
 #endif
   linux_common_core_of_thread,
+  linux_common_thread_name, /* thread_extra */
   linux_read_loadmap,
   linux_process_qsupported,
   linux_supports_tracepoints,

@@ -1487,6 +1487,16 @@ lookup_symbol_aux (const char *name, const struct block *block,
   return lookup_static_symbol_aux (name, domain);
 }
 
+static int
+str_ends_with (const char *str, const char *tok)
+{
+  size_t len = strlen(str);
+  size_t toklen = strlen(tok);
+  if (len < toklen)
+    return 0;
+  return !strcmp(str + len - toklen, tok);
+}
+
 /* Search all static file-level symbols for NAME from DOMAIN.  Do the symtabs
    first, then check the psymtabs.  If a psymtab indicates the existence of the
    desired name as a file-level static, then do psymtab-to-symtab conversion on
@@ -1504,6 +1514,14 @@ lookup_static_symbol_aux (const char *name, const domain_enum domain)
 
   ALL_OBJFILES (objfile)
   {
+    if (is_target_linux_android() &&
+	(! strcmp(objfile->original_name, "linker") ||
+	str_ends_with(objfile->original_name, SLASH_STRING "linker")) &&
+	(! strcmp(name, "malloc") || ! strcmp(name, "free") ||
+	! strcmp(name, "realloc") || ! strcmp(name, "calloc")))
+      /* Thanks Bionic! */
+      continue;
+
     sym = lookup_symbol_aux_quick (objfile, STATIC_BLOCK, name, domain);
     if (sym != NULL)
       return sym;
@@ -2227,7 +2245,7 @@ find_pc_sect_symtab (CORE_ADDR pc, struct obj_section *section)
     result = objfile->sf->qf->find_pc_sect_symtab (objfile,
 						   msymbol,
 						   pc, section,
-						   1);
+						   0);
     if (result)
       return result;
   }

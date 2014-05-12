@@ -29,7 +29,10 @@ output="$4"
 
 rm -f version.c-tmp $output version.tmp
 date=`sed -n -e 's/^.* BFD_VERSION_DATE \(.*\)$/\1/p' $srcdir/../bfd/version.h`
-sed -e "s/DATE/$date/" < $srcdir/version.in > version.tmp
+repo=`git --git-dir ${srcdir}/../.git config --get remote.origin.url | \
+      sed -e 's/[\/]/\\\\\\//g' -e 's/^.*@//' -e 's/\.git$//'`
+rev=`git --git-dir ${srcdir}/../.git rev-parse --short HEAD`
+sed -e "s/DATE/$date/" -e "s/REPO/$repo/" -e "s/REV/$rev/" < $srcdir/version.in > version.tmp
 echo '#include "version.h"' >> version.c-tmp
 echo 'const char version[] = "'"`sed q version.tmp`"'";' >> version.c-tmp
 echo 'const char host_name[] = "'"$host_alias"'";' >> version.c-tmp
